@@ -3,7 +3,8 @@
 // Runtime types generated with workerd@1.20250525.0 2025-04-04 
 declare namespace Cloudflare {
 	interface Env {
-		VALUE_FROM_CLOUDFLARE: "Hello from Cloudflare";
+        CLOUDFLARE_API_TOKEN: string;
+        CLOUDFLARE_ACCOUNT_ID: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

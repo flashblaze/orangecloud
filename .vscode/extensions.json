@@ -1,0 +1,7 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "antfu.iconify",
+    "bradlc.vscode-tailwindcss"
+  ]
+}

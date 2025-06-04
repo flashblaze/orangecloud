@@ -18,5 +18,5 @@ dist
 # Cloudflare & Environment
 .mf
 .wrangler
-.dev.vars*
+.dev.vars
 .env

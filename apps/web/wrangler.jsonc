@@ -8,7 +8,6 @@
   "compatibility_date": "2025-06-04",
   "main": "./workers/app.ts",
   "vars": {
-    "VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare",
     "NODE_VERSION": "20.17.0",
     "ENVIRONMENT": "production"
   },
