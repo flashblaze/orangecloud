@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Misc
+.DS_Store
+node_modules
+*.tsbuildinfo
+
+# React Router
+.react-router/
+out
+build
+dist
+.turbo
+
+# Cloudflare & Environment
+.mf
+.wrangler
+.dev.vars*
+.env

@@ -1,0 +1,22 @@
+@layer theme, base, mantine, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter Variable", sans-serif;
+
+  --color-primary-50: oklch(0.9866 0.0227 95.95);
+  --color-primary-100: oklch(0.9564 0.0579 91.09);
+  --color-primary-200: oklch(0.9154 0.1166 91.89);
+  --color-primary-300: oklch(0.8658 0.1545 86.59);
+  --color-primary-400: oklch(0.8203 0.1665 77.52);
+  --color-primary-500: oklch(0.7672 0.173 62.38);
+  --color-primary-600: oklch(0.6565 0.174757 49.5243);
+  --color-primary-700: oklch(0.5477 0.1638 42.2);
+  --color-primary-800: oklch(0.4671 0.1416 39.97);
+  --color-primary-900: oklch(0.4065 0.1189 39.78);
+  --color-primary-950: oklch(0.2748 0.085 40.7);
+}
