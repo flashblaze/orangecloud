@@ -1,4 +1,5 @@
 import Cloudflare from 'cloudflare';
+import { Link } from 'react-router';
 import type { Route } from './+types/home';
 
 export function meta() {
@@ -26,7 +27,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <ul className="list-disc">
         {loaderData.buckets?.map((bucket) => (
           <li className="list-item" key={bucket.name}>
-            {bucket.name}
+            <Link to={`/buckets/${bucket.name}`}>{bucket.name}</Link>
           </li>
         ))}
       </ul>

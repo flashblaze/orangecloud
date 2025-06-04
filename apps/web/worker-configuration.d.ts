@@ -5,6 +5,8 @@ declare namespace Cloudflare {
 	interface Env {
         CLOUDFLARE_API_TOKEN: string;
         CLOUDFLARE_ACCOUNT_ID: string;
+        CLOUDFLARE_R2_ACCESS_KEY: string;
+        CLOUDFLARE_R2_SECRET_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
