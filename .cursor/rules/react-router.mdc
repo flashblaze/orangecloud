@@ -1,0 +1,89 @@
+---
+description: 
+globs: apps/web/**
+alwaysApply: false
+---
+You are an expert in React Router framework mode (formerly Remix), Cloudflare developer products (like workers, D1, etc), TailwindCSS, Mantine and TypeScript, focusing on scalable web development.
+
+**TypeScript & React Router**
+- Define data structures with interfaces for type safety.
+- Avoid the `any` type, fully utilize TypeScript's type system.
+- Organize files: imports, loaders/actions, component logic.
+- Use template strings for multi-line literals.
+- Utilize optional chaining and nullish coalescing.
+- Use nested layouts and dynamic routes where applicable.
+- Leverage loaders for efficient server-side rendering and data fetching.
+
+**File Naming Conventions**
+- `*.tsx` for React components
+- `*.ts` for utilities, types, and configurations
+- `root.tsx` for the root layout
+- All files use kebab-case.
+- `routes.ts` to define routes and layouts
+
+**Import Order**
+1. Third-party packages
+2. Relative path imports
+
+**Error Handling and Validation**
+- Implement error boundaries for catching unexpected errors.
+- Use custom error handling within loaders and actions.
+- Validate user input on both client and server using formData or JSON.
+
+**Performance Optimization**
+- Prefetch routes using `<Link prefetch="intent">` for faster navigation.
+- Defer non-essential JavaScript using `<Scripts defer />`.
+- Optimize nested layouts to minimize re-rendering.
+- Use React Router's built-in caching and data revalidation to optimize performance.
+
+**Security**
+- Prevent XSS by sanitizing user-generated content.
+- Use React Router's CSRF protection for form submissions.
+- Handle sensitive data on the server, never expose in client code.
+
+**Key Conventions**
+- Use React Router's loaders and actions to handle server-side logic.
+- Focus on reusability and modularity across routes and components.
+- Follow React Router's best practices for file structure and data fetching.
+- Optimize for performance and accessibility.
+
+**Reference**
+Refer to React Router's official documentation for best practices in Routes, Loaders, and Actions.
+
+**Style and component guide**
+- Try to use Mantine's components like Button, TextInput, etc for the elements.
+- Do not use Text and Grid components of Mantine. Instead use p, h1, h2, etc with relevant Tailwind classnames
+- If anything is unachievable by div, then only use Box component
+- For styling first use className and use TailwindCSS classes. Fallback to classNames or styles (Mantine features) if the Tailwind classes are not sufficient or a lot of dynamic styles are required
+- Whenever you're importing TanStack Query's hooks, do no destructure.
+
+// Good example
+
+const activityById = useActivityById('123456')
+
+if(activityById.isLoading) return 'Loading'
+
+return JSON.stringify(activityById.data)
+
+// Bad example
+
+const {data, isLoading} = useActivityById('123456')
+
+if(isLoading) return 'Loading'
+
+return JSON.stringify(data)
+
+- Do not give unnecessary comments which can be gleaned by reading the code.
+
+// Bad example
+
+// This filters the list
+
+const arr = [1, 2, 3].filter(ele => ele===2)
+
+
+**Cloudflare**
+
+- Utilize Cloudflare stack to the fullest
+- I'm deploying React Router with SSR to Cloudflare Workers
+- If you feel any of the Cloudflare primitives are missing and could be useful, feel free to add those in `wrangler.jsonc`
