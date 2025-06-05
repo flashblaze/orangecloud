@@ -1,0 +1,33 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "orangecloud-api",
+  "compatibility_date": "2025-06-04",
+  "main": "./src/index.ts",
+  "vars": {
+    "NODE_VERSION": "20.17.0",
+    "ENVIRONMENT": "production"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "placement": { "mode": "smart" },
+  "route": {
+    "pattern": "api.orangecloud.app",
+    "custom_domain": true
+  },
+  "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"],
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "ORANGECLOUD_RATE_LIMIT",
+        "type": "ratelimit",
+        "namespace_id": "999",
+        "simple": { "limit": 120, "period": 60 }
+      }
+    ]
+  }
+}

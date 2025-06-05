@@ -6,7 +6,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans: "Inter", sans-serif;
 
   --color-primary-50: oklch(0.9866 0.0227 95.95);
   --color-primary-100: oklch(0.9564 0.0579 91.09);
@@ -19,4 +19,32 @@
   --color-primary-800: oklch(0.4671 0.1416 39.97);
   --color-primary-900: oklch(0.4065 0.1189 39.78);
   --color-primary-950: oklch(0.2748 0.085 40.7);
+}
+
+[data-error] {
+  color: var(--color-red-500);
+  border-color: var(--color-red-500);
+}
+
+.dark {
+  [data-error] * {
+    border-color: var(--color-red-400);
+    color: var(--color-red-400);
+    --input-placeholder-color: var(--color-red-400);
+  }
+
+  .orangecloud-checkbox {
+    --mantine-color-error: var(--color-red-400);
+  }
+}
+
+@layer mantine {
+  :where([data-mantine-color-scheme="dark"])
+    :where(tr):where([data-striped="odd"]:nth-of-type(odd)) {
+    --table-striped-color: var(--mantine-color-dark-7);
+  }
+
+  .orangecloud-day {
+    border-radius: 0.5rem !important;
+  }
 }

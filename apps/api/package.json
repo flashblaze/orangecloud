@@ -1,0 +1,33 @@
+{
+  "name": "api",
+  "scripts": {
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "format": "biome format . ",
+    "format:fix": "biome format --write .",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "update:deps": "ncu -u"
+  },
+  "dependencies": {
+    "@hono-rate-limiter/cloudflare": "^0.2.2",
+    "@hono/zod-validator": "^0.7.0",
+    "aws4fetch": "^1.0.20",
+    "cloudflare": "^4.3.0",
+    "dayjs": "^1.11.13",
+    "fast-xml-parser": "^5.2.3",
+    "hono": "^4.7.10",
+    "hono-rate-limiter": "^0.4.2",
+    "nanoid": "^5.1.5",
+    "react": "^19.1.0",
+    "zod": "^3.25.42"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.9.4",
+    "@cloudflare/workers-types": "^4.20250531.0",
+    "@types/node": "^22.15.29",
+    "npm-check-updates": "^18.0.1",
+    "typescript": "5.8.3",
+    "wrangler": "^4.18.0"
+  }
+}

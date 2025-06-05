@@ -3,7 +3,5 @@ CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_R2_ACCESS_KEY=
 CLOUDFLARE_R2_SECRET_KEY=
 
-API_URL=
-
 # Valid: local, development, production. This does not have to be set in Cloudflare dashboard. This is added here to override the default value in wrangler.toml
 ENVIRONMENT=local

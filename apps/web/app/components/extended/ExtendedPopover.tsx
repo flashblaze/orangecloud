@@ -1,6 +1,6 @@
-import { Popover } from '@mantine/core';
+import { type MantineThemeComponent, Popover } from '@mantine/core';
 
-const ExtendedPopover = Popover.extend({
+const ExtendedPopover: MantineThemeComponent = Popover.extend({
   classNames: {
     dropdown: 'rounded-lg shadow-lg',
   },

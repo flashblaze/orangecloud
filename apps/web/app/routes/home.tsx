@@ -1,22 +1,19 @@
-import Cloudflare from 'cloudflare';
 import { Link } from 'react-router';
+import { createClient } from '~/utils/client';
 import type { Route } from './+types/home';
 
 export function meta() {
   return [{ title: 'OrangeCloud' }, { name: 'description', content: 'Welcome to OrangeCloud!' }];
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
-  const cloudflare = new Cloudflare({
-    apiToken: context.cloudflare.env.CLOUDFLARE_API_TOKEN,
-  });
+export async function loader() {
+  const client = createClient(undefined, true);
 
-  const response = await cloudflare.r2.buckets.list({
-    account_id: context.cloudflare.env.CLOUDFLARE_ACCOUNT_ID,
-  });
+  const response = await client.buckets.$get();
+  const json = await response.json();
 
   return {
-    buckets: response.buckets,
+    buckets: json.data,
   };
 }
 

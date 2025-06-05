@@ -3,7 +3,7 @@ import { DatePickerInput } from '@mantine/dates';
 const ExtendedDatePickerInput = DatePickerInput.extend({
   classNames: {
     input: 'rounded-lg shadow-sm',
-    day: 'instaclock-day',
+    day: 'orangecloud-day',
   },
   defaultProps: {
     popoverProps: {

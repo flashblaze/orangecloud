@@ -1,6 +1,7 @@
-import { createRequestHandler } from "react-router";
+/// <reference path="../worker-configuration.d.ts" />
+import { createRequestHandler } from 'react-router';
 
-declare module "react-router" {
+declare module 'react-router' {
   export interface AppLoadContext {
     cloudflare: {
       env: Env;
@@ -10,7 +11,7 @@ declare module "react-router" {
 }
 
 const requestHandler = createRequestHandler(
-  () => import("virtual:react-router/server-build"),
+  () => import('virtual:react-router/server-build'),
   import.meta.env.MODE
 );
 

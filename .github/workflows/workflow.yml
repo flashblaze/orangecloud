@@ -2,37 +2,41 @@ name: Deploy Apps
 on:
   push:
     branches:
-      - main
-      - dev
+    - main
+    - dev
     paths:
-      - "apps/web/**"
-      - ".github/workflows/workflow.yml"
-      - "bun.lock"
+    - "apps/web/**"
+    - "apps/api/**"
+    - ".github/workflows/workflow.yml"
+    - "bun.lock"
 
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
       web_changed: ${{ steps.changed-files.outputs.web_any_changed }}
+      api_changed: ${{ steps.changed-files.outputs.api_any_changed }}
       lockfile_changed: ${{ steps.changed-files.outputs.lockfile_any_changed }}
       workflow_changed: ${{ steps.changed-files.outputs.workflow_any_changed }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Required for changed-files action
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Required for changed-files action
 
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v45
-        with:
-          files_yaml: |
-            web:
-              - 'apps/web/**'
-            lockfile:
-              - 'bun.lock'
-            workflow:
-              - '.github/workflows/workflow.yml'
-          json: true
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v45
+      with:
+        files_yaml: |
+          web:
+            - 'apps/web/**'
+          api:
+            - 'apps/api/**'
+          lockfile:
+            - 'bun.lock'
+          workflow:
+            - '.github/workflows/workflow.yml'
+        json: true
 
   deploy-web:
     needs: detect-changes
@@ -40,29 +44,58 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20.17.0"
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20.17.0"
 
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
 
-      - name: Install dependencies
-        run: bun install
+    - name: Install dependencies
+      run: bun install
 
-      - name: Build React Router app
-        working-directory: apps/web
-        run: bun run build
+    - name: Build web app
+      working-directory: apps/web
+      run: bun run build
 
-      - name: Deploy Web to Cloudflare
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: apps/web
-          command: deploy ${{ github.ref == 'refs/heads/dev' && '--env dev' || '' }}
+    - name: Deploy web to Cloudflare
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: apps/web
+        command: deploy ${{ github.ref == 'refs/heads/dev' && '--env dev' || '' }}
+
+  deploy-api:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.api_changed == 'true' || needs.detect-changes.outputs.lockfile_changed == 'true' || needs.detect-changes.outputs.workflow_changed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20.17.0"
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Deploy API to Cloudflare
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: apps/api
+        command: deploy ${{ github.ref == 'refs/heads/dev' && '--env dev' || '' }}

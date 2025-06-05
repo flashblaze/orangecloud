@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.json",
+  "references": [
+    { "path": "../api" }
+  ],
   "include": [
     ".react-router/types/**/*",
     "app/**/*",
@@ -12,7 +15,11 @@
     "composite": true,
     "strict": true,
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": ["vite/client"],
+    "types": [
+      "node",
+      "vite/client", 
+      "unplugin-icons/types/react"
+  ],
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",

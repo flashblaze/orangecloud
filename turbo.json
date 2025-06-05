@@ -5,7 +5,7 @@
       "build": {
         "dependsOn": ["^build"],
         "inputs": ["$TURBO_DEFAULT$", ".env*"],
-        "outputs": [".wrangler/**", ".output/**", "dist/**"]
+        "outputs": [".wrangler/**", ".output/**", "dist/**", ".react-router/**", "build/**"]
       },
       "lint": {
         "dependsOn": ["^lint"]

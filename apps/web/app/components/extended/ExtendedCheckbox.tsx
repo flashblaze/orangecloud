@@ -2,7 +2,7 @@ import { Checkbox } from '@mantine/core';
 
 const ExtendedCheckbox = Checkbox.extend({
   classNames: {
-    root: 'instaclock-checkbox',
+    root: 'orangecloud-checkbox',
     input: 'rounded-md shadow-sm',
   },
 });

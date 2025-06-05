@@ -1,52 +1,30 @@
-import { AwsClient } from 'aws4fetch';
-import Cloudflare from 'cloudflare';
-import { XMLParser } from 'fast-xml-parser';
 import { redirect } from 'react-router';
 
-import type { BucketContent } from '~/types';
+import { createClient } from '~/utils/client';
 import type { Route } from './+types/bucket';
 
 export function meta({ params }: Route.MetaArgs) {
   return [{ title: params.name }];
 }
 
-export async function loader({ context, params }: Route.LoaderArgs) {
-  const cloudflare = new Cloudflare({
-    apiToken: context.cloudflare.env.CLOUDFLARE_API_TOKEN,
+export async function loader({ params }: Route.LoaderArgs) {
+  const client = createClient(undefined, true);
+
+  const response = await client.buckets[':name'].$get({
+    param: {
+      name: params.name,
+    },
   });
-  const aws = new AwsClient({
-    accessKeyId: context.cloudflare.env.CLOUDFLARE_R2_ACCESS_KEY,
-    secretAccessKey: context.cloudflare.env.CLOUDFLARE_R2_SECRET_KEY,
-    region: 'auto',
-  });
 
-  try {
-    const [_, bucketContent] = await Promise.all([
-      cloudflare.r2.buckets.get(params.name, {
-        account_id: context.cloudflare.env.CLOUDFLARE_ACCOUNT_ID,
-      }),
-      aws.fetch(
-        `https://${context.cloudflare.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${params.name}?list-type=2`,
-        {
-          method: 'GET',
-        }
-      ),
-    ]);
-
-    const data = await bucketContent.text();
-    const parser = new XMLParser();
-    const json = parser.parse(data) as BucketContent;
-
-    return {
-      items: json.ListBucketResult.Contents,
-    };
-  } catch (error) {
-    if (error instanceof Cloudflare.APIError) {
-      console.error(error);
-      throw redirect('/');
-    }
-    throw error;
+  if (response.status === 404) {
+    return redirect('/');
   }
+
+  const json = await response.json();
+
+  return {
+    items: json.data,
+  };
 }
 
 const Bucket = ({ loaderData }: Route.ComponentProps) => {

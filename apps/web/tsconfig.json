@@ -10,8 +10,6 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-    "types": [
-        "./worker-configuration.d.ts"
-    ]
+    "types": ["@cloudflare/workers-types/2023-07-01"]
   }
 }
