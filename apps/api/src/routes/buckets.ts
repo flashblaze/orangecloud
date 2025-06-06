@@ -20,7 +20,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       message: 'Success',
     });
   })
-  .get('/exists/:name', async (c) => {
+  .get('/:name/exists', async (c) => {
     const { name } = c.req.param();
     const cloudflare = new Cloudflare({
       apiToken: c.env.CLOUDFLARE_API_TOKEN,

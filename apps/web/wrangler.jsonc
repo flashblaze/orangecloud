@@ -10,7 +10,7 @@
   "vars": {
     "NODE_VERSION": "20.17.0",
     "ENVIRONMENT": "production",
-    "API_URL": "http://api.orangecloud.app"
+    "API_URL": "https://api.orangecloud.app"
   },
   "observability": {
     "enabled": true

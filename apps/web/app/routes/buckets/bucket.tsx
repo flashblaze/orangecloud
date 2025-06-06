@@ -11,7 +11,7 @@ export function meta({ params }: Route.MetaArgs) {
 export async function loader({ params }: Route.LoaderArgs) {
   const client = createClient(undefined, true);
 
-  const response = await client.buckets.exists[':name'].$get({
+  const response = await client.buckets[':name'].exists.$get({
     param: {
       name: params.name,
     },
