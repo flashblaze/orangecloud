@@ -20,16 +20,10 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       message: 'Success',
     });
   })
-  .get('/:name', async (c) => {
+  .get('/exists/:name', async (c) => {
     const { name } = c.req.param();
     const cloudflare = new Cloudflare({
       apiToken: c.env.CLOUDFLARE_API_TOKEN,
-    });
-
-    const aws = new AwsClient({
-      accessKeyId: c.env.CLOUDFLARE_R2_ACCESS_KEY,
-      secretAccessKey: c.env.CLOUDFLARE_R2_SECRET_KEY,
-      region: 'auto',
     });
 
     try {
@@ -47,6 +41,20 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         );
       }
     }
+
+    return c.json({
+      data: null,
+      message: 'Success',
+    });
+  })
+  .get('/:name', async (c) => {
+    const { name } = c.req.param();
+
+    const aws = new AwsClient({
+      accessKeyId: c.env.CLOUDFLARE_R2_ACCESS_KEY,
+      secretAccessKey: c.env.CLOUDFLARE_R2_SECRET_KEY,
+      region: 'auto',
+    });
 
     const bucketContent = await aws.fetch(
       `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`,
@@ -68,6 +76,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     const bucketContentText = await bucketContent.text();
     const parser = new XMLParser();
     const json = parser.parse(bucketContentText) as BucketContent;
+
+    console.log(json);
 
     return c.json({
       data: json.ListBucketResult.Contents,

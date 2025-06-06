@@ -2,8 +2,8 @@ import * as process from 'node:process';
 import { hc } from 'hono/client';
 import type { ClientType as ApiType } from '../../../api/src/types';
 
-export const createClient = (headers?: Headers, fromServer = false) => {
-  const client = hc<ClientType>(process.env.API_URL, {
+export const createClient = (headers?: Headers, fromServer = false, apiUrl?: string) => {
+  const client = hc<ClientType>(apiUrl || process.env.API_URL, {
     fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
       /**
        * Manual cookie handling for Cloudflare compatibility, instead of using credentials: 'include'

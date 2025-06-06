@@ -1,0 +1,22 @@
+---
+description: 
+globs: apps/api/**
+alwaysApply: false
+---
+You are an expert in Hono and TypeScript, focusing on scalable web development.
+
+**TypeScript**
+- Define data structures with interfaces for type safety.
+- Avoid the `any` type, fully utilize TypeScript's type system.
+- Use template strings for multi-line literals.
+- Utilize optional chaining and nullish coalescing.
+
+**Reference**
+Refer to Hono's official documentation for best practices in using middlewares, validation, API, helpers, patterns
+
+**Cloudflare and AWS**
+
+- Utilize Cloudflare stack to the fullest
+- I'm using Hono with Cloudflare Workers.
+- If you feel any of the Cloudflare primitives are missing and could be useful, feel free to add those in `wrangler.jsonc`
+- This project focuses mostly on R2 and since it is compatible with S3, I'm using aws4fetch for interacting with the same. Ensure you do the same. Use types for better client-server interaction

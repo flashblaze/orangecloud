@@ -1,5 +1,6 @@
-import { redirect } from 'react-router';
-
+import { redirect, useLoaderData } from 'react-router';
+import { useEnv } from '~/context/use-env';
+import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { createClient } from '~/utils/client';
 import type { Route } from './+types/bucket';
 
@@ -10,7 +11,7 @@ export function meta({ params }: Route.MetaArgs) {
 export async function loader({ params }: Route.LoaderArgs) {
   const client = createClient(undefined, true);
 
-  const response = await client.buckets[':name'].$get({
+  const response = await client.buckets.exists[':name'].$get({
     param: {
       name: params.name,
     },
@@ -20,18 +21,22 @@ export async function loader({ params }: Route.LoaderArgs) {
     return redirect('/');
   }
 
-  const json = await response.json();
-
   return {
-    items: json.data,
+    name: params.name,
   };
 }
 
-const Bucket = ({ loaderData }: Route.ComponentProps) => {
+const Bucket = () => {
+  const { apiUrl } = useEnv();
+  const { name } = useLoaderData<typeof loader>();
+  const bucketContentByName = useBucketContentByName({ name, enabled: !!name, apiUrl });
+
   return (
     <div className="grid grid-cols-4 gap-4">
-      {Array.isArray(loaderData.items) ? (
-        loaderData.items.map((item) => <div key={item.Key}>{item.Key}</div>)
+      {bucketContentByName.isLoading ? (
+        <p>Loading...</p>
+      ) : Array.isArray(bucketContentByName.data?.data) ? (
+        bucketContentByName.data.data.map((item) => <div key={item.Key}>{item.Key}</div>)
       ) : (
         <p>No items</p>
       )}

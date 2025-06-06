@@ -1,3 +1,4 @@
+/// <reference path="../worker-configuration.d.ts" />
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
@@ -10,6 +11,7 @@ import {
   Scripts,
   ScrollRestoration,
   isRouteErrorResponse,
+  useLoaderData,
 } from 'react-router';
 import type { Route } from './+types/root';
 import theme from './utils/theme';
@@ -19,6 +21,7 @@ import '@mantine/core/styles.layer.css';
 import '@mantine/dates/styles.css';
 import '@mantine/dropzone/styles.layer.css';
 import '@mantine/notifications/styles.layer.css';
+import { EnvProvider } from './context/use-env';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -41,6 +44,15 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+export async function loader({ context }: Route.LoaderArgs) {
+  return {
+    env: {
+      apiUrl: context.cloudflare.env.API_URL,
+      environment: context.cloudflare.env.ENVIRONMENT,
+    },
+  };
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -74,7 +86,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  const { env } = useLoaderData<typeof loader>();
+  return (
+    <EnvProvider env={env}>
+      <Outlet />
+    </EnvProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

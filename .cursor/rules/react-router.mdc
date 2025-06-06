@@ -46,6 +46,7 @@ You are an expert in React Router framework mode (formerly Remix), Cloudflare de
 - Focus on reusability and modularity across routes and components.
 - Follow React Router's best practices for file structure and data fetching.
 - Optimize for performance and accessibility.
+- Refer to how queries are written under **queries** folder where each query goes under a new file which are clubbed based on resources.
 
 **Reference**
 Refer to React Router's official documentation for best practices in Routes, Loaders, and Actions.
@@ -80,10 +81,3 @@ return JSON.stringify(data)
 // This filters the list
 
 const arr = [1, 2, 3].filter(ele => ele===2)
-
-
-**Cloudflare**
-
-- Utilize Cloudflare stack to the fullest
-- I'm deploying React Router with SSR to Cloudflare Workers
-- If you feel any of the Cloudflare primitives are missing and could be useful, feel free to add those in `wrangler.jsonc`
