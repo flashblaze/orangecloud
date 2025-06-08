@@ -33,22 +33,22 @@ app.use(
     },
   }),
   (c, next) => {
-    const origin = ['https://orangecloud.app', 'https://grove.orangecloud.app'];
+    const origin = c.env.VALID_ORIGIN_URLS.split(',');
     if (c.env.ENVIRONMENT === 'local') {
       origin.push('http://localhost:5173');
     } else if (c.env.ENVIRONMENT === 'development') {
-      origin.push('https://dev.grove.orangecloud.app');
+      origin.push('https://dev.slice.orangecloud.app');
     }
     return csrf({
       origin,
     })(c, next);
   },
   (c, next) => {
-    const origin = ['https://orangecloud.app', 'https://grove.orangecloud.app'];
+    const origin = c.env.VALID_ORIGIN_URLS.split(',');
     if (c.env.ENVIRONMENT === 'local') {
       origin.push('http://localhost:5173');
     } else if (c.env.ENVIRONMENT === 'development') {
-      origin.push('https://dev.grove.orangecloud.app');
+      origin.push('https://dev.slice.orangecloud.app');
     }
     return cors({
       origin,

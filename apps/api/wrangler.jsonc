@@ -9,7 +9,8 @@
   "main": "./src/index.ts",
   "vars": {
     "NODE_VERSION": "20.17.0",
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "VALID_ORIGIN_URLS": "https://orangecloud.app,https://slice.orangecloud.app"
   },
   "observability": {
     "enabled": true

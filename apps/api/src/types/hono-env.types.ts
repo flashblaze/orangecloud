@@ -6,5 +6,6 @@ export type Env = {
     CLOUDFLARE_ACCOUNT_ID: string;
     CLOUDFLARE_R2_ACCESS_KEY: string;
     CLOUDFLARE_R2_SECRET_KEY: string;
+    VALID_ORIGIN_URLS: string;
   };
 };
