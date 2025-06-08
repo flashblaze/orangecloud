@@ -17,7 +17,7 @@
   },
   "placement": { "mode": "smart" },
   "route": {
-    "pattern": "grove.orangecloud.app",
+    "pattern": "slice.orangecloud.app",
     "custom_domain": true
   },
   "compatibility_flags": ["nodejs_compat", "nodejs_compat_populate_process_env"]
