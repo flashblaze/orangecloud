@@ -1,9 +1,11 @@
+import { zValidator } from '@hono/zod-validator';
 import { AwsClient } from 'aws4fetch';
 import Cloudflare from 'cloudflare';
 import { XMLParser } from 'fast-xml-parser';
 import { Hono } from 'hono';
+import { z } from 'zod/v4';
 
-import type { AuthHonoEnv, BucketContent } from '../types';
+import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 
 const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/', async (c) => {
@@ -47,8 +49,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       message: 'Success',
     });
   })
-  .get('/:name', async (c) => {
+  .get('/:name', zValidator('query', z.object({ prefix: z.string().optional() })), async (c) => {
     const { name } = c.req.param();
+    const prefix = c.req.query('prefix') || '';
 
     const aws = new AwsClient({
       accessKeyId: c.env.CLOUDFLARE_R2_ACCESS_KEY,
@@ -56,12 +59,15 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       region: 'auto',
     });
 
-    const bucketContent = await aws.fetch(
-      `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`,
-      {
-        method: 'GET',
-      }
-    );
+    // Build URL with optional prefix
+    let url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`;
+    if (prefix) {
+      url += `&prefix=${encodeURIComponent(prefix)}`;
+    }
+
+    const bucketContent = await aws.fetch(url, {
+      method: 'GET',
+    });
 
     if (!bucketContent.ok) {
       return c.json(
@@ -77,10 +83,65 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     const parser = new XMLParser();
     const json = parser.parse(bucketContentText) as BucketContent;
 
-    console.log(json);
+    // Process folders (CommonPrefixes)
+    const folders: FileSystemItem[] = [];
+    if (json.ListBucketResult.CommonPrefixes) {
+      const prefixes = Array.isArray(json.ListBucketResult.CommonPrefixes)
+        ? json.ListBucketResult.CommonPrefixes
+        : [json.ListBucketResult.CommonPrefixes];
+
+      for (const prefixObj of prefixes) {
+        const folderName = prefixObj.Prefix.replace(prefix, '').replace('/', '');
+        if (folderName) {
+          folders.push({
+            key: prefixObj.Prefix,
+            name: folderName,
+            type: 'folder',
+          });
+        }
+      }
+    }
+
+    // Process files (Contents)
+    const files: FileSystemItem[] = [];
+    if (json.ListBucketResult.Contents) {
+      const contents = Array.isArray(json.ListBucketResult.Contents)
+        ? json.ListBucketResult.Contents
+        : [json.ListBucketResult.Contents];
+
+      for (const content of contents) {
+        // Skip if this is a folder marker or the current prefix
+        if (content.Key === prefix || content.Key.endsWith('/')) continue;
+
+        const fileName = content.Key.replace(prefix, '');
+        if (fileName) {
+          files.push({
+            key: content.Key,
+            name: fileName,
+            type: 'file',
+            size: content.Size,
+            lastModified: content.LastModified,
+            etag: content.ETag,
+          });
+        }
+      }
+    }
+
+    // Sort files by lastModified in descending order (most recent first)
+    files.sort((a, b) => {
+      const dateA = new Date(a.lastModified || 0);
+      const dateB = new Date(b.lastModified || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    const items = [...folders, ...files];
 
     return c.json({
-      data: json.ListBucketResult.Contents,
+      data: {
+        items,
+        prefix,
+        bucketName: name,
+      },
       message: 'Success',
     });
   });

@@ -13,10 +13,26 @@ type Content = {
   StorageClass: string;
 };
 
+type CommonPrefix = {
+  Prefix: string;
+};
+
 export type BucketContent = {
   '?xml': '';
   ListBucketResult: {
     Name: string;
     Contents: Content | Content[];
+    CommonPrefixes?: CommonPrefix | CommonPrefix[];
+    Prefix?: string;
+    Delimiter?: string;
   };
+};
+
+export type FileSystemItem = {
+  key: string;
+  name: string;
+  type: 'file' | 'folder';
+  size?: number;
+  lastModified?: string;
+  etag?: string;
 };

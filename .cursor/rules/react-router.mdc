@@ -13,12 +13,13 @@ You are an expert in React Router framework mode (formerly Remix), Cloudflare de
 - Utilize optional chaining and nullish coalescing.
 - Use nested layouts and dynamic routes where applicable.
 - Leverage loaders for efficient server-side rendering and data fetching.
+- Use ES6 pattern for functions instead of ES5 function keyword. This should be followed everywhere apart from framework specific exports like `shouldRevalidate`, `loader`, etc
 
 **File Naming Conventions**
 - `*.tsx` for React components
 - `*.ts` for utilities, types, and configurations
 - `root.tsx` for the root layout
-- All files use kebab-case.
+- All component files use PascalCase and should be default export. Other files use kebab-case.
 - `routes.ts` to define routes and layouts
 
 **Import Order**
@@ -46,7 +47,7 @@ You are an expert in React Router framework mode (formerly Remix), Cloudflare de
 - Focus on reusability and modularity across routes and components.
 - Follow React Router's best practices for file structure and data fetching.
 - Optimize for performance and accessibility.
-- Refer to how queries are written under **queries** folder where each query goes under a new file which are clubbed based on resources.
+- Refer to how queries are written under **queries** folder where each query goes under a new file, utilizes the `createClient` function and are clubbed based on resources.
 
 **Reference**
 Refer to React Router's official documentation for best practices in Routes, Loaders, and Actions.

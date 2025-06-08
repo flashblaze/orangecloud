@@ -1,5 +1,8 @@
+import { Card } from '@mantine/core';
 import { Link } from 'react-router';
+import ThemeToggle from '~/components/ThemeToggle';
 import { createClient } from '~/utils/client';
+import IconStorage from '~icons/tabler/database';
 import type { Route } from './+types/home';
 
 export function meta() {
@@ -17,17 +20,54 @@ export async function loader() {
   };
 }
 
-export default function Home({ loaderData }: Route.ComponentProps) {
+const Home = ({ loaderData }: Route.ComponentProps) => {
   return (
-    <main className="flex flex-col gap-4">
-      <h2 className="font-bold text-2xl">Buckets</h2>
-      <ul className="list-disc">
-        {loaderData.buckets?.map((bucket) => (
-          <li className="list-item" key={bucket.name}>
-            <Link to={`/buckets/${bucket.name}`}>{bucket.name}</Link>
-          </li>
-        ))}
-      </ul>
-    </main>
+    <section className="container mx-auto mt-10 px-8">
+      <div className="space-y-10">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <h1 className="mb-2 font-bold text-3xl text-gray-900 dark:text-gray-100">
+              OrangeCloud
+            </h1>
+            <p className="font-semibold text-gray-600 dark:text-gray-400">Your R2 buckets</p>
+          </div>
+          <ThemeToggle />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {loaderData.buckets?.map((bucket) => (
+            <Link key={bucket.name} to={`/buckets/${bucket.name}`} className="no-underline">
+              <Card>
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-primary-100/70 p-3 dark:bg-primary-900/30">
+                    <IconStorage className="h-6 w-6 text-primary-500 dark:text-primary-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-lg dark:text-gray-100">
+                      {bucket.name}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+
+        {(!loaderData.buckets || loaderData.buckets.length === 0) && (
+          <Card padding="xl" className="border border-card-border text-center">
+            <div className="flex flex-col items-center gap-4">
+              <IconStorage className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+              <div>
+                <p className="mb-1 font-medium text-gray-900 text-lg dark:text-gray-100">
+                  No buckets found
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
+    </section>
   );
-}
+};
+
+export default Home;
