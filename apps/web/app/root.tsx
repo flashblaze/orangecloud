@@ -17,6 +17,7 @@ import {
 } from 'react-router';
 
 import type { Route } from './+types/root';
+import NavigationProgress from './components/NavigationProgress';
 import { ThemeProvider } from './components/ThemeProvider';
 import { EnvProvider } from './context/use-env';
 import { createCookieColorSchemeManager } from './utils/color-scheme-manager';
@@ -102,6 +103,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       </head>
       <body>
+        <NavigationProgress />
         <QueryClientProvider client={queryClient}>
           <MantineProvider
             theme={theme}
