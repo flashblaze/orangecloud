@@ -4,6 +4,8 @@ const videoExtensions = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'wmv', 'flv', 'mkv'
 
 const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma', 'opus', 'aiff', 'au'];
 
+const pdfExtensions = ['pdf'];
+
 export const getFileExtension = (fileName: string): string => {
   const lastDot = fileName.lastIndexOf('.');
   return lastDot !== -1 ? fileName.slice(lastDot + 1).toLowerCase() : '';
@@ -24,13 +26,21 @@ export const isAudioFile = (fileName: string): boolean => {
   return audioExtensions.includes(extension);
 };
 
-export const isPreviewableFile = (fileName: string): boolean => {
-  return isImageFile(fileName) || isVideoFile(fileName) || isAudioFile(fileName);
+export const isPdfFile = (fileName: string): boolean => {
+  const extension = getFileExtension(fileName);
+  return pdfExtensions.includes(extension);
 };
 
-export const getPreviewType = (fileName: string): 'image' | 'video' | 'audio' | null => {
+export const isPreviewableFile = (fileName: string): boolean => {
+  return (
+    isImageFile(fileName) || isVideoFile(fileName) || isAudioFile(fileName) || isPdfFile(fileName)
+  );
+};
+
+export const getPreviewType = (fileName: string): 'image' | 'video' | 'audio' | 'pdf' | null => {
   if (isImageFile(fileName)) return 'image';
   if (isVideoFile(fileName)) return 'video';
   if (isAudioFile(fileName)) return 'audio';
+  if (isPdfFile(fileName)) return 'pdf';
   return null;
 };

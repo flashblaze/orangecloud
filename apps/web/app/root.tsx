@@ -35,6 +35,8 @@ import '@mantine/dates/styles.css';
 import '@mantine/dropzone/styles.layer.css';
 import '@mantine/notifications/styles.layer.css';
 import '@mantine/nprogress/styles.layer.css';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

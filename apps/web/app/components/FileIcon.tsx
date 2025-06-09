@@ -1,5 +1,6 @@
 import { cn } from '~/utils';
 import IconCode from '~icons/solar/code-bold-duotone';
+import IconPdf from '~icons/solar/document-bold-duotone';
 import IconFileText from '~icons/solar/file-bold-duotone';
 import IconFolder from '~icons/solar/folder-bold-duotone';
 import IconPhoto from '~icons/solar/gallery-round-bold-duotone';
@@ -35,6 +36,11 @@ const FileIcon = ({ type, name, className = 'w-5 h-5' }: FileIconProps) => {
     return <IconMusic className={cn(className, 'text-orange-500 dark:text-orange-400')} />;
   }
 
+  // PDF files
+  if (extension === 'pdf') {
+    return <IconPdf className={cn(className, 'text-red-500 dark:text-red-400')} />;
+  }
+
   // Code files
   if (
     [
@@ -60,7 +66,7 @@ const FileIcon = ({ type, name, className = 'w-5 h-5' }: FileIconProps) => {
   }
 
   // Text files
-  if (['txt', 'md', 'doc', 'docx', 'pdf', 'rtf'].includes(extension)) {
+  if (['txt', 'md', 'doc', 'docx', 'rtf'].includes(extension)) {
     return <IconFileText className={cn(className, 'text-gray-600 dark:text-gray-400')} />;
   }
 

@@ -6,6 +6,7 @@ import useFileContent from '~/queries/buckets/useFileContent';
 import { getPreviewType } from '~/utils';
 import IconSoundWave from '~icons/solar/soundwave-bold';
 import type { FileSystemItem } from './FileItem';
+import PdfViewer from './PdfViewer';
 
 interface FilePreviewModalProps {
   opened: boolean;
@@ -90,6 +91,14 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
       );
     }
 
+    if (previewType === 'pdf') {
+      return (
+        <div className="w-full max-w-4xl">
+          <PdfViewer fileKey={file.key} bucketName={bucketName} apiUrl={apiUrl} />
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -98,16 +107,18 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
       opened={opened}
       onClose={onClose}
       title={file.name}
-      size="auto"
+      size={previewType === 'pdf' ? 'xl' : 'auto'}
       centered
       classNames={{
-        content: 'max-w-[90vw] max-h-[90vh]',
+        content: previewType === 'pdf' ? 'max-w-[95vw] max-h-[95vh]' : 'max-w-[90vw] max-h-[90vh]',
         body: 'p-0',
         header: 'px-6 py-4 border-b border-gray-200 dark:border-gray-700',
         title: 'font-medium text-gray-900 dark:text-gray-100 truncate',
       }}
     >
-      <div className="flex items-center justify-center p-6">{renderPreviewContent()}</div>
+      <div className={`flex items-center justify-center ${previewType === 'pdf' ? 'p-4' : 'p-6'}`}>
+        {renderPreviewContent()}
+      </div>
     </Modal>
   );
 };
