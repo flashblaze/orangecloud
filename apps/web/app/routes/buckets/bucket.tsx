@@ -15,10 +15,10 @@ import { useEnv } from '~/context/use-env';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { cn } from '~/utils';
 import { createClient } from '~/utils/client';
-import IconListDetails from '~icons/solar/list-bold';
-import IconGrid from '~icons/solar/widget-4-bold';
-import IconArrowLeft from '~icons/tabler/arrow-left';
-import IconFolderOpen from '~icons/tabler/folder-open';
+import IconArrowLeft from '~icons/solar/arrow-left-bold-duotone';
+import IconChecklist from '~icons/solar/checklist-bold-duotone';
+import IconFolderOpen from '~icons/solar/folder-open-bold-duotone';
+import IconGrid from '~icons/solar/widget-4-bold-duotone';
 import type { Route } from './+types/bucket';
 
 type ViewMode = 'list' | 'grid';
@@ -139,7 +139,7 @@ const Bucket = () => {
                 color={viewMode === 'list' ? 'primary' : 'gray'}
                 onClick={() => setViewMode('list')}
               >
-                <IconListDetails className="h-5 w-5" />
+                <IconChecklist className="h-5 w-5" />
               </ActionIcon>
             </Tooltip>
             <Tooltip label="Grid view">

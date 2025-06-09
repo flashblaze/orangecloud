@@ -1,3 +1,4 @@
+import { AwsClient } from 'aws4fetch';
 import type { CookieOptions } from 'hono/utils/cookie';
 import { customAlphabet } from 'nanoid';
 
@@ -36,4 +37,12 @@ export const setCookieData = (sessionId: string, userId: string) => {
   };
 
   return JSON.stringify(dataToStore);
+};
+
+export const createAwsClient = (accessKeyId: string, secretAccessKey: string) => {
+  return new AwsClient({
+    accessKeyId,
+    secretAccessKey,
+    region: 'auto',
+  });
 };

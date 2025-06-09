@@ -1,11 +1,11 @@
 import { cn } from '~/utils';
-import IconCode from '~icons/tabler/code';
+import IconCode from '~icons/solar/code-bold-duotone';
+import IconFileText from '~icons/solar/file-bold-duotone';
+import IconFolder from '~icons/solar/folder-bold-duotone';
+import IconPhoto from '~icons/solar/gallery-round-bold-duotone';
+import IconMusic from '~icons/solar/music-note-2-bold-duotone';
+import IconVideo from '~icons/solar/videocamera-record-bold-duotone';
 import IconFile from '~icons/tabler/file';
-import IconFileText from '~icons/tabler/file-text';
-import IconFolder from '~icons/tabler/folder';
-import IconMusic from '~icons/tabler/music';
-import IconPhoto from '~icons/tabler/photo';
-import IconVideo from '~icons/tabler/video';
 
 interface FileIconProps {
   type: 'file' | 'folder';

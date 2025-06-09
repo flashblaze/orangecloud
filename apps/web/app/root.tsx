@@ -34,6 +34,7 @@ import '@mantine/core/styles.layer.css';
 import '@mantine/dates/styles.css';
 import '@mantine/dropzone/styles.layer.css';
 import '@mantine/notifications/styles.layer.css';
+import '@mantine/nprogress/styles.layer.css';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -103,13 +104,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       </head>
       <body>
-        <NavigationProgress />
         <QueryClientProvider client={queryClient}>
           <MantineProvider
             theme={theme}
             defaultColorScheme={loaderData?.theme || 'auto'}
             colorSchemeManager={colorSchemeManager}
           >
+            <NavigationProgress />
             <ModalsProvider>
               <Notifications position="top-center" />
               <ThemeProvider>{children}</ThemeProvider>

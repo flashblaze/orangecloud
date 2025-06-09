@@ -2,7 +2,7 @@ import { Card } from '@mantine/core';
 import { Link } from 'react-router';
 import ThemeToggle from '~/components/ThemeToggle';
 import { createClient } from '~/utils/client';
-import IconStorage from '~icons/tabler/database';
+import IconDatabase from '~icons/solar/database-bold-duotone';
 import type { Route } from './+types/home';
 
 export function meta() {
@@ -39,8 +39,8 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
             <Link key={bucket.name} to={`/buckets/${bucket.name}`} className="no-underline">
               <Card>
                 <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-primary-100/70 p-3 dark:bg-primary-900/30">
-                    <IconStorage className="h-6 w-6 text-primary-500 dark:text-primary-400" />
+                  <div className="rounded-lg bg-primary-100/20 p-3 dark:bg-primary-900/20">
+                    <IconDatabase className="h-6 w-6 text-primary-500 dark:text-primary-400" />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900 text-lg dark:text-gray-100">
@@ -56,7 +56,7 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
         {(!loaderData.buckets || loaderData.buckets.length === 0) && (
           <Card padding="xl" className="border border-card-border text-center">
             <div className="flex flex-col items-center gap-4">
-              <IconStorage className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+              <IconDatabase className="h-12 w-12 text-gray-400 dark:text-gray-500" />
               <div>
                 <p className="mb-1 font-medium text-gray-900 text-lg dark:text-gray-100">
                   No buckets found

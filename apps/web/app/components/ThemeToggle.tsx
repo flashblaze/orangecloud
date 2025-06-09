@@ -1,7 +1,7 @@
 import { ActionIcon, Menu, useMantineColorScheme } from '@mantine/core';
-import IconDeviceDesktop from '~icons/tabler/device-desktop';
-import IconMoon from '~icons/tabler/moon';
-import IconSun from '~icons/tabler/sun';
+import IconLaptop from '~icons/solar/laptop-bold-duotone';
+import IconMoon from '~icons/solar/moon-bold-duotone';
+import IconSun from '~icons/solar/sun-2-bold-duotone';
 
 const ThemeToggle = () => {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
@@ -13,7 +13,7 @@ const ThemeToggle = () => {
       case 'light':
         return <IconSun width={18} height={18} className="text-primary-500" />;
       default:
-        return <IconDeviceDesktop width={18} height={18} className="text-primary-500" />;
+        return <IconLaptop width={18} height={18} className="text-primary-500" />;
     }
   };
 
@@ -41,7 +41,7 @@ const ThemeToggle = () => {
           Dark
         </Menu.Item>
         <Menu.Item
-          leftSection={<IconDeviceDesktop width={16} height={16} />}
+          leftSection={<IconLaptop width={16} height={16} />}
           onClick={() => setColorScheme('auto')}
           data-active={colorScheme === 'auto' || undefined}
         >

@@ -24,6 +24,7 @@
 		"@mantine/hooks": "^8.0.2",
 		"@mantine/modals": "^8.0.2",
 		"@mantine/notifications": "^8.0.2",
+		"@mantine/nprogress": "^8.0.2",
 		"@tanstack/react-query": "^5.80.5",
 		"@tanstack/react-query-devtools": "^5.80.5",
 		"aws4fetch": "^1.0.20",

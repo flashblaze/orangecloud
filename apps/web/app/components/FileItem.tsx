@@ -1,6 +1,10 @@
 import { Card, Group, Text } from '@mantine/core';
+import { useState } from 'react';
 import { Link } from 'react-router';
+
+import { isPreviewableFile } from '~/utils';
 import FileIcon from './FileIcon';
+import FilePreviewModal from './FilePreviewModal';
 
 export interface FileSystemItem {
   key: string;
@@ -37,7 +41,15 @@ const formatDate = (dateString: string): string => {
 };
 
 const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
+  const [previewModalOpened, setPreviewModalOpened] = useState(false);
   const isGridView = viewMode === 'grid';
+  const isPreviewable = item.type === 'file' && isPreviewableFile(item.name);
+
+  const handleFileClick = () => {
+    if (isPreviewable) {
+      setPreviewModalOpened(true);
+    }
+  };
 
   const itemContent = (
     <Card padding={isGridView ? 'sm' : 'md'} className="h-full">
@@ -92,14 +104,31 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
       <Link
         to={`/buckets/${bucketName}?prefix=${encodeURIComponent(item.key)}`}
         className="block h-full no-underline"
+        prefetch="intent"
       >
         {itemContent}
       </Link>
     );
   }
 
-  // For files, we'll just show them without links for now
-  // You could add file preview/download functionality here
+  // For files, check if they are previewable
+  if (isPreviewable) {
+    return (
+      <>
+        <button type="button" className="cursor-pointer text-left" onClick={handleFileClick}>
+          {itemContent}
+        </button>
+        <FilePreviewModal
+          opened={previewModalOpened}
+          onClose={() => setPreviewModalOpened(false)}
+          file={item}
+          bucketName={bucketName}
+        />
+      </>
+    );
+  }
+
+  // For non-previewable files, just show them without interaction
   return itemContent;
 };
 

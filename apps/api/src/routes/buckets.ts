@@ -1,11 +1,11 @@
 import { zValidator } from '@hono/zod-validator';
-import { AwsClient } from 'aws4fetch';
 import Cloudflare from 'cloudflare';
 import { XMLParser } from 'fast-xml-parser';
 import { Hono } from 'hono';
 import { z } from 'zod/v4';
 
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
+import { createAwsClient } from '../utils';
 
 const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/', async (c) => {
@@ -53,11 +53,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     const { name } = c.req.param();
     const prefix = c.req.query('prefix') || '';
 
-    const aws = new AwsClient({
-      accessKeyId: c.env.CLOUDFLARE_R2_ACCESS_KEY,
-      secretAccessKey: c.env.CLOUDFLARE_R2_SECRET_KEY,
-      region: 'auto',
-    });
+    const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
 
     // Build URL with optional prefix
     let url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`;
@@ -144,6 +140,47 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       },
       message: 'Success',
     });
-  });
+  })
+  .get(
+    '/:name/file/:key',
+    zValidator(
+      'param',
+      z.object({
+        name: z.string({ error: 'Name is required' }),
+        key: z.string({
+          error: 'Key is required',
+        }),
+      })
+    ),
+    async (c) => {
+      const { name, key } = c.req.param();
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
+
+      const fileResponse = await aws.fetch(url, {
+        method: 'GET',
+      });
+
+      if (!fileResponse.ok) {
+        return c.json(
+          {
+            data: null,
+            message: 'File not found',
+          },
+          404
+        );
+      }
+
+      // Return the file response directly with appropriate headers
+      return new Response(fileResponse.body, {
+        headers: {
+          'Content-Type': fileResponse.headers.get('Content-Type') || 'application/octet-stream',
+          'Content-Length': fileResponse.headers.get('Content-Length') || '',
+          'Cache-Control': 'public, max-age=31536000',
+        },
+      });
+    }
+  );
 
 export default bucketsRouter;

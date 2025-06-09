@@ -45,6 +45,7 @@
         "@mantine/hooks": "^8.0.2",
         "@mantine/modals": "^8.0.2",
         "@mantine/notifications": "^8.0.2",
+        "@mantine/nprogress": "^8.0.2",
         "@tanstack/react-query": "^5.80.5",
         "@tanstack/react-query-devtools": "^5.80.5",
         "aws4fetch": "^1.0.20",
@@ -335,6 +336,8 @@
     "@mantine/modals": ["@mantine/modals@8.0.2", "", { "peerDependencies": { "@mantine/core": "8.0.2", "@mantine/hooks": "8.0.2", "react": "^18.x || ^19.x", "react-dom": "^18.x || ^19.x" } }, "sha512-AAYDotb7vWZcBdCph4rjy7VNn9AyReRa+bea+g5xplC2G03Fxcd9Lve2rodhuNx/l6IQe7INRkD+fzXvpDGnew=="],
 
     "@mantine/notifications": ["@mantine/notifications@8.0.2", "", { "dependencies": { "@mantine/store": "8.0.2", "react-transition-group": "4.4.5" }, "peerDependencies": { "@mantine/core": "8.0.2", "@mantine/hooks": "8.0.2", "react": "^18.x || ^19.x", "react-dom": "^18.x || ^19.x" } }, "sha512-whSuoCCZxQF3VM40sumCte9tA79to8OCV/vv0z8PeVTj/eKlaTR+P9LKigO9ovhuNELrvvO3Rxcnno5aMBz0oA=="],
+
+    "@mantine/nprogress": ["@mantine/nprogress@8.0.2", "", { "dependencies": { "@mantine/store": "8.0.2" }, "peerDependencies": { "@mantine/core": "8.0.2", "@mantine/hooks": "8.0.2", "react": "^18.x || ^19.x", "react-dom": "^18.x || ^19.x" } }, "sha512-d5Cgb7VNKn+MNGdjFqBNrx3K9aj82VqHR44r3fdzJNemEuSpNXalBT0LNHlQDrT9xbbIw1H4Xp30l4sNuXo+RQ=="],
 
     "@mantine/store": ["@mantine/store@8.0.2", "", { "peerDependencies": { "react": "^18.x || ^19.x" } }, "sha512-/LuizGWAXjVnLLZ55f0QYotiqb8GlHpIb4KRf4LqRkbsA6UAZEVb6beuk0vI2Azf6vfuh7sTHu1xVC5zI6C+Cw=="],
 

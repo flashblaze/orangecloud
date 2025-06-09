@@ -1,7 +1,7 @@
 import { Breadcrumbs } from '@mantine/core';
 import { Link } from 'react-router';
 import { cn } from '~/utils';
-import IconHome from '~icons/solar/home-smile-angle-bold';
+import IconHome from '~icons/solar/home-smile-angle-bold-duotone';
 
 interface BreadcrumbProps {
   bucketName: string;
