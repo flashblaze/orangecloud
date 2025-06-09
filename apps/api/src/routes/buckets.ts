@@ -147,39 +147,55 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       'param',
       z.object({
         name: z.string({ error: 'Name is required' }),
-        key: z.string({
-          error: 'Key is required',
-        }),
+        key: z.string({ error: 'Key is required' }),
       })
     ),
     async (c) => {
       const { name, key } = c.req.param();
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
 
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
       const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
 
-      const fileResponse = await aws.fetch(url, {
-        method: 'GET',
-      });
+      try {
+        const fileResponse = await aws.fetch(url, {
+          method: 'GET',
+        });
 
-      if (!fileResponse.ok) {
+        console.log(`Response status: ${fileResponse.status}`);
+        console.log('Response headers:', Object.fromEntries(fileResponse.headers.entries()));
+
+        if (!fileResponse.ok) {
+          console.log(`File not found: ${fileResponse.status}`);
+          return c.json(
+            {
+              data: null,
+              message: 'File not found',
+            },
+            404
+          );
+        }
+
+        // Add this critical fix - read the body completely before returning
+        const fileBuffer = await fileResponse.arrayBuffer();
+        console.log(`File size: ${fileBuffer.byteLength} bytes`);
+
+        return new Response(fileBuffer, {
+          headers: {
+            'Content-Type': fileResponse.headers.get('Content-Type') || 'application/octet-stream',
+            'Content-Length': fileBuffer.byteLength.toString(),
+            'Cache-Control': 'public, max-age=31536000',
+          },
+        });
+      } catch (error) {
+        console.error('Error fetching file:', error);
         return c.json(
           {
             data: null,
-            message: 'File not found',
+            message: 'Internal server error',
           },
-          404
+          500
         );
       }
-
-      // Return the file response directly with appropriate headers
-      return new Response(fileResponse.body, {
-        headers: {
-          'Content-Type': fileResponse.headers.get('Content-Type') || 'application/octet-stream',
-          'Content-Length': fileResponse.headers.get('Content-Length') || '',
-          'Cache-Control': 'public, max-age=31536000',
-        },
-      });
     }
   );
 
