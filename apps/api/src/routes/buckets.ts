@@ -161,11 +161,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           method: 'GET',
         });
 
-        console.log(`Response status: ${fileResponse.status}`);
-        console.log('Response headers:', Object.fromEntries(fileResponse.headers.entries()));
-
         if (!fileResponse.ok) {
-          console.log(`File not found: ${fileResponse.status}`);
+          console.error(`File not found: ${fileResponse.status}`);
           return c.json(
             {
               data: null,
@@ -177,7 +174,6 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
 
         // Add this critical fix - read the body completely before returning
         const fileBuffer = await fileResponse.arrayBuffer();
-        console.log(`File size: ${fileBuffer.byteLength} bytes`);
 
         return new Response(fileBuffer, {
           headers: {
@@ -188,6 +184,63 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         });
       } catch (error) {
         console.error('Error fetching file:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Internal server error',
+          },
+          500
+        );
+      }
+    }
+  )
+  .delete(
+    '/:name/file/:key',
+    zValidator(
+      'param',
+      z.object({
+        name: z.string({ error: 'Name is required' }),
+        key: z.string({ error: 'Key is required' }),
+      })
+    ),
+    async (c) => {
+      const { name, key } = c.req.param();
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
+
+      try {
+        const deleteResponse = await aws.fetch(url, {
+          method: 'DELETE',
+        });
+
+        if (!deleteResponse.ok) {
+          if (deleteResponse.status === 404) {
+            return c.json(
+              {
+                data: null,
+                message: 'File not found',
+              },
+              404
+            );
+          }
+
+          console.error(`Failed to delete file: ${deleteResponse.status}`);
+          return c.json(
+            {
+              data: null,
+              message: 'Failed to delete file',
+            },
+            500
+          );
+        }
+
+        return c.json({
+          data: { key, bucketName: name },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error deleting file:', error);
         return c.json(
           {
             data: null,

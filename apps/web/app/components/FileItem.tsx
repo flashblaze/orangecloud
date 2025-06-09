@@ -1,8 +1,15 @@
-import { Card, Group, Text } from '@mantine/core';
-import { useState } from 'react';
+import { ActionIcon, Card, Group, Menu, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router';
 
+import { useEnv } from '~/context/use-env';
+import useDeleteFile from '~/queries/buckets/useDeleteFile';
 import { isPreviewableFile } from '~/utils';
+import IconDotsVertical from '~icons/solar/menu-dots-bold-duotone';
+import IconShare from '~icons/solar/share-bold-duotone';
+import IconTrash from '~icons/solar/trash-bin-trash-bold-duotone';
+import { DeleteConfirmation } from './DeleteConfirmation';
 import FileIcon from './FileIcon';
 import FilePreviewModal from './FilePreviewModal';
 
@@ -41,6 +48,11 @@ const formatDate = (dateString: string): string => {
 };
 
 const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
+  const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] =
+    useDisclosure(false);
+  const env = useEnv();
+  const deleteFile = useDeleteFile({ apiUrl: env.apiUrl });
+
   const [previewModalOpened, setPreviewModalOpened] = useState(false);
   const isGridView = viewMode === 'grid';
   const isPreviewable = item.type === 'file' && isPreviewableFile(item.name);
@@ -50,6 +62,17 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
       setPreviewModalOpened(true);
     }
   };
+
+  const handleDeleteFile = useCallback(() => {
+    openDeleteConfirm();
+  }, [openDeleteConfirm]);
+
+  const confirmDeleteFile = useCallback(() => {
+    deleteFile.mutate({
+      bucketName,
+      fileKey: item.key,
+    });
+  }, [bucketName, deleteFile, item.key]);
 
   const itemContent = (
     <Card padding={isGridView ? 'sm' : 'md'} className="h-full">
@@ -81,18 +104,44 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
               <Text size="sm" className="truncate font-medium text-gray-900 dark:text-gray-100">
                 {item.name}
               </Text>
-              {item.type === 'file' && item.size !== undefined && (
-                <Text size="xs" className="text-gray-500 dark:text-gray-400">
-                  {formatFileSize(item.size)}
-                </Text>
-              )}
+              <div className="space-y-1">
+                {item.type === 'file' && item.size !== undefined && (
+                  <Text size="xs" className="text-gray-500 dark:text-gray-400">
+                    {formatFileSize(item.size)}
+                  </Text>
+                )}
+                {item.lastModified && (
+                  <Text size="xs" className="text-gray-500 dark:text-gray-400">
+                    {formatDate(item.lastModified)}
+                  </Text>
+                )}
+              </div>
             </div>
           </Group>
 
-          {item.lastModified && (
-            <Text size="xs" className="whitespace-nowrap text-gray-500 dark:text-gray-400">
-              {formatDate(item.lastModified)}
-            </Text>
+          {/* Dropdown Menu - Only for files */}
+          {item.type === 'file' && (
+            <Menu shadow="md" width={120} position="bottom-end">
+              <Menu.Target>
+                <ActionIcon variant="default" size="sm" onClick={(e) => e.stopPropagation()}>
+                  <IconDotsVertical className="h-4 w-4" />
+                </ActionIcon>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Item leftSection={<IconShare className="h-4 w-4" />}>Share</Menu.Item>
+                <Menu.Item
+                  leftSection={<IconTrash className="h-4 w-4" />}
+                  className="text-red-500 dark:text-red-400"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteFile();
+                  }}
+                >
+                  Delete
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           )}
         </Group>
       )}
@@ -124,12 +173,31 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
           file={item}
           bucketName={bucketName}
         />
+        <DeleteConfirmation
+          opened={deleteConfirmOpened}
+          onClose={closeDeleteConfirm}
+          onConfirm={confirmDeleteFile}
+          title="Delete File"
+          description="Are you sure you want to delete this file? This action cannot be undone."
+          loading={deleteFile.isPending}
+        />
       </>
     );
   }
 
   // For non-previewable files, just show them without interaction
-  return itemContent;
+  return (
+    <>
+      {itemContent}
+      <DeleteConfirmation
+        opened={deleteConfirmOpened}
+        onClose={closeDeleteConfirm}
+        onConfirm={confirmDeleteFile}
+        title="Delete File"
+        description="Are you sure you want to delete this file? This action cannot be undone."
+      />
+    </>
+  );
 };
 
 export default FileItem;
