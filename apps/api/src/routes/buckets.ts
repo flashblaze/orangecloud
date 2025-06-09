@@ -17,10 +17,88 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
     });
 
+    // Get size information for each bucket
+    const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+    const buckets = response.buckets || [];
+    const bucketsWithSize = await Promise.all(
+      buckets.map(async (bucket) => {
+        try {
+          const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${bucket.name}?list-type=2`;
+          const bucketContent = await aws.fetch(url, { method: 'GET' });
+
+          if (bucketContent.ok) {
+            const bucketContentText = await bucketContent.text();
+            const parser = new XMLParser();
+            const json = parser.parse(bucketContentText) as BucketContent;
+
+            let totalSize = 0;
+            let objectCount = 0;
+
+            if (json.ListBucketResult.Contents) {
+              const contents = Array.isArray(json.ListBucketResult.Contents)
+                ? json.ListBucketResult.Contents
+                : [json.ListBucketResult.Contents];
+
+              for (const content of contents) {
+                // Only skip folder markers (keys ending with '/')
+                // Don't skip zero-byte files as they are legitimate empty files
+                if (content.Key.endsWith('/')) {
+                  continue;
+                }
+
+                totalSize += content.Size;
+                objectCount += 1;
+              }
+            }
+
+            return {
+              ...bucket,
+              size: totalSize,
+              objectCount,
+            };
+          }
+        } catch (error) {
+          console.error(`Error fetching size for bucket ${bucket.name}:`, error);
+        }
+
+        return {
+          ...bucket,
+          size: 0,
+          objectCount: 0,
+        };
+      })
+    );
+
     return c.json({
-      data: response.buckets,
+      data: bucketsWithSize,
       message: 'Success',
     });
+  })
+  .get('/metrics', async (c) => {
+    const cloudflare = new Cloudflare({
+      apiToken: c.env.CLOUDFLARE_API_TOKEN,
+    });
+
+    try {
+      const metrics = await cloudflare.r2.buckets.metrics.list({
+        account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+      });
+
+      return c.json({
+        data: metrics,
+        message: 'Success',
+      });
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      return c.json(
+        {
+          data: null,
+          message: 'Failed to fetch metrics',
+        },
+        500
+      );
+    }
   })
   .get('/:name/exists', async (c) => {
     const { name } = c.req.param();

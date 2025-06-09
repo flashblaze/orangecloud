@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 
 import { useEnv } from '~/context/use-env';
 import useDeleteFile from '~/queries/buckets/useDeleteFile';
-import { isPreviewableFile } from '~/utils';
+import { formatFileSize, isPreviewableFile } from '~/utils';
 import IconDotsVertical from '~icons/solar/menu-dots-bold-duotone';
 import IconShare from '~icons/solar/share-bold-duotone';
 import IconTrash from '~icons/solar/trash-bin-trash-bold-duotone';
@@ -26,16 +26,6 @@ interface FileItemProps {
   bucketName: string;
   viewMode?: 'list' | 'grid';
 }
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 B';
-
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`;
-};
 
 const formatDate = (dateString: string): string => {
   return new Date(dateString).toLocaleDateString('en-US', {
