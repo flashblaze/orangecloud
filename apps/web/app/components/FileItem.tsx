@@ -1,4 +1,4 @@
-import { ActionIcon, Card, Group, Menu, Text } from '@mantine/core';
+import { ActionIcon, Card, Group, Menu } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router';
@@ -74,89 +74,103 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
     });
   }, [bucketName, deleteFile, item.key]);
 
+  const MoreOptions = useCallback(
+    () => (
+      <Menu shadow="md" width={120} position="bottom-end">
+        <Menu.Target>
+          <ActionIcon variant="default" size="sm" onClick={(e) => e.stopPropagation()}>
+            <IconDotsVertical className="h-4 w-4" />
+          </ActionIcon>
+        </Menu.Target>
+
+        <Menu.Dropdown>
+          <Menu.Item leftSection={<IconShare className="h-4 w-4" />}>Share</Menu.Item>
+          <Menu.Item
+            leftSection={<IconTrash className="h-4 w-4" />}
+            className="text-red-500 dark:text-red-400"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteFile();
+            }}
+          >
+            Delete
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
+    ),
+    [handleDeleteFile]
+  );
+
   const itemContent = (
-    <Card padding={isGridView ? 'sm' : 'md'} className="h-full">
+    <Card padding={isGridView ? 0 : 'md'} className="h-full">
       {isGridView ? (
-        // Grid View Layout
-        <div className="flex h-full flex-col items-center gap-2 text-center">
-          <FileIcon type={item.type} name={item.name} className="h-8 w-8" />
-          <div className="w-full min-w-0">
-            <Text
-              size="sm"
-              className="truncate font-medium text-gray-900 dark:text-gray-100"
-              title={item.name}
-            >
-              {item.name}
-            </Text>
-            {item.type === 'file' && item.size !== undefined && (
-              <Text size="xs" className="text-gray-500 dark:text-gray-400">
-                {formatFileSize(item.size)}
-              </Text>
-            )}
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-center rounded-t-lg bg-gray-50 p-6 dark:bg-gray-800">
+            <FileIcon type={item.type} name={item.name} className="h-12 w-12" />
+          </div>
+
+          {/* Info Section */}
+          <div className="flex items-center justify-between gap-2 p-3">
+            <div className="min-w-0 flex-1">
+              <p
+                className="truncate font-medium text-gray-900 text-sm dark:text-gray-100"
+                title={item.name}
+              >
+                {item.name}
+              </p>
+              {item.type === 'file' && item.size !== undefined && (
+                <p className="text-gray-500 text-xs dark:text-gray-400">
+                  {formatFileSize(item.size)}
+                </p>
+              )}
+            </div>
+
+            {/* Dropdown Menu for Grid View - Only for files */}
+            {item.type === 'file' && <MoreOptions />}
           </div>
         </div>
       ) : (
         // List View Layout
-        <Group justify="space-between" wrap="nowrap" className="h-full">
+        <div className="flex h-full justify-between">
           <Group gap="sm" className="min-w-0 flex-1">
             <FileIcon type={item.type} name={item.name} />
             <div className="min-w-0 flex-1">
-              <Text size="sm" className="truncate font-medium text-gray-900 dark:text-gray-100">
+              <p className="truncate font-medium text-gray-900 text-sm dark:text-gray-100">
                 {item.name}
-              </Text>
+              </p>
               <div className="space-y-1">
                 {item.type === 'file' && item.size !== undefined && (
-                  <Text size="xs" className="text-gray-500 dark:text-gray-400">
+                  <p className="text-gray-500 text-xs dark:text-gray-400">
                     {formatFileSize(item.size)}
-                  </Text>
+                  </p>
                 )}
                 {item.lastModified && (
-                  <Text size="xs" className="text-gray-500 dark:text-gray-400">
+                  <p className="text-gray-500 text-xs dark:text-gray-400">
                     {formatDate(item.lastModified)}
-                  </Text>
+                  </p>
                 )}
               </div>
             </div>
           </Group>
 
           {/* Dropdown Menu - Only for files */}
-          {item.type === 'file' && (
-            <Menu shadow="md" width={120} position="bottom-end">
-              <Menu.Target>
-                <ActionIcon variant="default" size="sm" onClick={(e) => e.stopPropagation()}>
-                  <IconDotsVertical className="h-4 w-4" />
-                </ActionIcon>
-              </Menu.Target>
-
-              <Menu.Dropdown>
-                <Menu.Item leftSection={<IconShare className="h-4 w-4" />}>Share</Menu.Item>
-                <Menu.Item
-                  leftSection={<IconTrash className="h-4 w-4" />}
-                  className="text-red-500 dark:text-red-400"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteFile();
-                  }}
-                >
-                  Delete
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          )}
-        </Group>
+          {item.type === 'file' && <MoreOptions />}
+        </div>
       )}
     </Card>
   );
 
   if (item.type === 'folder') {
     return (
-      <Link
-        to={`/buckets/${bucketName}?prefix=${encodeURIComponent(item.key)}`}
-        className="block h-full no-underline"
-        prefetch="intent"
-      >
-        {itemContent}
-      </Link>
+      <div className="mb-1">
+        <Link
+          to={`/buckets/${bucketName}?prefix=${encodeURIComponent(item.key)}`}
+          className="block h-full no-underline"
+          prefetch="intent"
+        >
+          {itemContent}
+        </Link>
+      </div>
     );
   }
 
@@ -164,7 +178,7 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
   if (isPreviewable) {
     return (
       <>
-        <button type="button" className="cursor-pointer text-left" onClick={handleFileClick}>
+        <button type="button" className="mb-1 cursor-pointer text-left" onClick={handleFileClick}>
           {itemContent}
         </button>
         <FilePreviewModal

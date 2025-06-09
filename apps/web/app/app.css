@@ -21,7 +21,7 @@
   --color-accent: oklch(0.8709 0.0819 58.63); /* #fec89f */
   --color-secondary: oklch(0.967 0.0029 264.54); /* #f3f4f6 */
   --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.2686 0 0); /* #262626 */
+  --color-foreground: oklch(0.252 0 0); /* #222222 */
 
   --color-primary-foreground: oklch(0 0 0); /* #000000 */
   --color-secondary-foreground: oklch(0.4461 0.0263 256.8); /* #4b5563 */
@@ -34,7 +34,7 @@
 
 .dark {
   --color-accent: oklch(0.8278 0.1131 58); /* #feb47b */
-  --color-secondary: oklch(0.2686 0 0); /* #262626 */
+  --color-secondary: oklch(0.252 0 0); /* #222222 */
   --color-background: oklch(0.2046 0 0); /* #171717 */
   --color-foreground: oklch(0.9219 0 0); /* #e5e5e5 */
 
@@ -42,9 +42,9 @@
   --color-secondary-foreground: oklch(0.9219 0 0); /* #e5e5e5 */
   --color-accent-foreground: oklch(0.2569 0.0169 352.4);
 
-  --color-card-background: oklch(0.2686 0 0); /* #262626 */
+  --color-card-background: oklch(0.252 0 0); /* #222222 */
   --color-card-background-hover: oklch(0.2393 0 0); /* #1f1f1f */
-  --color-card-border: oklch(0.2686 0 0); /* #262626 */
+  --color-card-border: oklch(0.252 0 0); /* #222222 */
 }
 
 @theme {

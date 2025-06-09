@@ -4,7 +4,7 @@ import IconFileText from '~icons/solar/file-bold-duotone';
 import IconFolder from '~icons/solar/folder-bold-duotone';
 import IconPhoto from '~icons/solar/gallery-round-bold-duotone';
 import IconMusic from '~icons/solar/music-note-2-bold-duotone';
-import IconVideo from '~icons/solar/videocamera-record-bold-duotone';
+import IconVideo from '~icons/solar/videocamera-bold-duotone';
 import IconFile from '~icons/tabler/file';
 
 interface FileIconProps {
