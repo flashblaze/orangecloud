@@ -1,8 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "references": [
-    { "path": "../api" }
-  ],
   "include": [
     ".react-router/types/**/*",
     "app/**/*",
@@ -10,6 +7,9 @@
     "app/**/.client/**/*",
     "workers/**/*",
     "worker-configuration.d.ts"
+  ],
+  "references": [
+    { "path": "../api" }
   ],
   "compilerOptions": {
     "composite": true,

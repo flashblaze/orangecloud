@@ -1,6 +1,10 @@
 {
+  "include": ["src/**/*"],
   "compilerOptions": {
     "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist",
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -9,6 +13,6 @@
     "lib": ["ESNext"],
     "types": ["@cloudflare/workers-types/2023-07-01"],
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
+    "jsxImportSource": "hono/jsx"
   }
 }
