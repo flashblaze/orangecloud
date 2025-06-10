@@ -1,8 +1,13 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Group, Loader, Modal, Radio } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useState } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { z } from 'zod/v4';
+import ControlledSelect from '~/components/form/ControlledSelect';
 import { useEnv } from '~/context/use-env';
 import useBucketDomains from '~/queries/buckets/useBucketDomains';
+import useGeneratePresignedUrl from '~/queries/buckets/useGeneratePresignedUrl';
 
 interface ShareModalProps {
   opened: boolean;
@@ -21,15 +26,29 @@ type CustomDomain = {
   };
 };
 
+const presignedUrlSchema = z.object({
+  duration: z.string().min(1, 'Duration is required'),
+});
+
 const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareModalProps) => {
   const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [copying, setCopying] = useState(false);
+  const [generatedUrl, setGeneratedUrl] = useState<string>('');
   const env = useEnv();
 
   const bucketDomains = useBucketDomains({
     bucketName,
     enabled: opened,
     apiUrl: env.apiUrl,
+  });
+
+  const generatePresignedUrl = useGeneratePresignedUrl({ apiUrl: env.apiUrl });
+
+  const methods = useForm<z.infer<typeof presignedUrlSchema>>({
+    resolver: zodResolver(presignedUrlSchema),
+    defaultValues: {
+      duration: '3600', // 1 hour default
+    },
   });
 
   const availableDomains =
@@ -44,8 +63,10 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
     setSelectedDomain(availableDomains[0].domain);
   }
 
-  const handleCopyUrl = async () => {
-    if (!selectedDomain) {
+  const handleCopyUrl = async (url?: string) => {
+    const urlToCopy = url || `https://${selectedDomain}/${encodeURIComponent(fileKey)}`;
+
+    if (!url && !selectedDomain) {
       notifications.show({
         message: 'Please select a domain',
         color: 'orange',
@@ -55,8 +76,7 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
 
     setCopying(true);
     try {
-      const url = `https://${selectedDomain}/${encodeURIComponent(fileKey)}`;
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(urlToCopy);
 
       notifications.show({
         message: 'URL copied to clipboard',
@@ -74,8 +94,30 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
     }
   };
 
+  const handleGeneratePresignedUrl = async (data: z.infer<typeof presignedUrlSchema>) => {
+    try {
+      const result = await generatePresignedUrl.mutateAsync({
+        bucketName,
+        fileKey,
+        expiresInSeconds: Number.parseInt(data.duration),
+      });
+
+      const presignedUrl = result.data.presignedUrl;
+      setGeneratedUrl(presignedUrl);
+
+      notifications.show({
+        message: 'Presigned URL generated successfully',
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Error generating presigned URL:', error);
+    }
+  };
+
   const handleClose = () => {
     setSelectedDomain('');
+    setGeneratedUrl('');
+    methods.reset();
     onClose();
   };
 
@@ -87,13 +129,68 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
             <Loader size="sm" />
           </div>
         ) : availableDomains.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">
-              No custom domains are configured for this bucket.
-            </p>
-            <p className="mt-2 text-gray-400 text-sm dark:text-gray-500">
-              Configure a custom domain in your Cloudflare dashboard to share files.
-            </p>
+          // Private bucket - show presigned URL form
+          <div className="space-y-4">
+            <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+              <p className="text-blue-700 text-sm dark:text-blue-300">
+                This bucket is private. Generate a temporary signed URL to share this file.
+              </p>
+            </div>
+
+            {generatedUrl ? (
+              <div className="space-y-4">
+                <div className="rounded border bg-gray-50 p-3 dark:bg-gray-800">
+                  <p className="mb-2 text-gray-600 text-sm dark:text-gray-300">Generated URL:</p>
+                  <p className="break-all font-mono text-gray-900 text-xs dark:text-gray-100">
+                    {generatedUrl}
+                  </p>
+                </div>
+                <div className="flex justify-between">
+                  <Button variant="default" onClick={() => setGeneratedUrl('')} size="sm">
+                    Generate New
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="default" onClick={handleClose}>
+                      Close
+                    </Button>
+                    <Button onClick={() => handleCopyUrl(generatedUrl)} loading={copying}>
+                      Copy URL
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <FormProvider {...methods}>
+                <form
+                  onSubmit={methods.handleSubmit(handleGeneratePresignedUrl)}
+                  className="space-y-4"
+                >
+                  <ControlledSelect
+                    label="URL Expiration"
+                    data={[
+                      { value: '300', label: '5 minutes' },
+                      { value: '900', label: '15 minutes' },
+                      { value: '3600', label: '1 hour' },
+                      { value: '21600', label: '6 hours' },
+                      { value: '86400', label: '1 day' },
+                      { value: '259200', label: '3 days' },
+                      { value: '604800', label: '7 days' },
+                    ]}
+                    name="duration"
+                    disabled={generatePresignedUrl.isPending}
+                  />
+
+                  <Group justify="flex-end">
+                    <Button variant="default" onClick={handleClose}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" loading={generatePresignedUrl.isPending}>
+                      Generate URL
+                    </Button>
+                  </Group>
+                </form>
+              </FormProvider>
+            )}
           </div>
         ) : availableDomains.length === 1 ? (
           <div className="space-y-4">
@@ -107,7 +204,7 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
               <Button variant="default" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleCopyUrl} loading={copying}>
+              <Button onClick={() => handleCopyUrl()} loading={copying}>
                 Copy URL
               </Button>
             </Group>
@@ -135,7 +232,7 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
               <Button variant="default" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleCopyUrl} loading={copying} disabled={!selectedDomain}>
+              <Button onClick={() => handleCopyUrl()} loading={copying} disabled={!selectedDomain}>
                 Copy URL
               </Button>
             </Group>

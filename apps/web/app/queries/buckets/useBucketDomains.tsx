@@ -28,6 +28,8 @@ const useBucketDomains = ({ bucketName, enabled = true, apiUrl }: UseBucketDomai
       return jsonData;
     },
     enabled: enabled && !!bucketName,
+    staleTime: 1000 * 60 * 15, // 15 minutes
+    gcTime: 1000 * 60 * 15, // 15 minutes
   });
 };
 

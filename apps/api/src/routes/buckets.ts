@@ -445,6 +445,56 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         500
       );
     }
-  });
+  })
+  .post(
+    '/:name/file/:key/presigned-url',
+    zValidator(
+      'json',
+      z.object({
+        expiresInSeconds: z.number().min(1).max(604800), // 1 second to 7 days
+      })
+    ),
+    async (c) => {
+      const { name, key } = c.req.param();
+      const { expiresInSeconds } = c.req.valid('json');
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(key)}`;
+
+      try {
+        // Add expires as a query parameter before signing
+        const urlObj = new URL(url);
+        urlObj.searchParams.set('X-Amz-Expires', expiresInSeconds.toString());
+
+        const requestWithExpires = new Request(urlObj.toString(), { method: 'GET' });
+
+        const signedUrl = await aws.sign(requestWithExpires, {
+          aws: {
+            signQuery: true,
+          },
+        });
+
+        console.log('Generated presigned URL:', signedUrl.url);
+
+        return c.json({
+          data: {
+            presignedUrl: signedUrl.url,
+            expiresInSeconds,
+            expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+          },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error generating presigned URL:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Failed to generate presigned URL',
+          },
+          500
+        );
+      }
+    }
+  );
 
 export default bucketsRouter;
