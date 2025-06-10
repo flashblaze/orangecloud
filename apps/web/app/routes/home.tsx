@@ -1,6 +1,9 @@
-import { Card } from '@mantine/core';
+import { ActionIcon, Card } from '@mantine/core';
+import { useState } from 'react';
 import { Link } from 'react-router';
+
 import ThemeToggle from '~/components/ThemeToggle';
+import CreateBucketModal from '~/components/modules/bucket/CreateBucketModal';
 import { formatFileSize } from '~/utils';
 import { createClient } from '~/utils/client';
 import IconDatabase from '~icons/solar/database-bold-duotone';
@@ -40,6 +43,7 @@ export async function loader() {
 }
 
 const Home = ({ loaderData }: Route.ComponentProps) => {
+  const [createBucketModalOpened, setCreateBucketModalOpened] = useState(false);
   const metrics = loaderData.metrics;
 
   // Calculate total storage
@@ -104,9 +108,12 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
 
         {/* Buckets Section */}
         <div>
-          <h2 className="mb-4 font-semibold text-gray-900 text-xl dark:text-gray-100">
-            Your Buckets
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 text-xl dark:text-gray-100">Your Buckets</h2>
+            <ActionIcon variant="filled" size="lg" onClick={() => setCreateBucketModalOpened(true)}>
+              <span className="text-xl">+</span>
+            </ActionIcon>
+          </div>
 
           {loaderData.buckets && loaderData.buckets.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -152,6 +159,11 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
           )}
         </div>
       </div>
+
+      <CreateBucketModal
+        opened={createBucketModalOpened}
+        onClose={() => setCreateBucketModalOpened(false)}
+      />
     </section>
   );
 };

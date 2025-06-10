@@ -65,7 +65,7 @@ const theme = createTheme({
       'oklch(0.396 0.141 25.723)',
     ],
   },
-  primaryShade: 5,
+  primaryShade: { light: 5, dark: 6 },
   fontFamily: 'Montserrat, sans-serif',
 });
 

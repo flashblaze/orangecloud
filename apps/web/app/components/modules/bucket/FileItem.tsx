@@ -9,7 +9,7 @@ import { formatFileSize, isPreviewableFile } from '~/utils';
 import IconDotsVertical from '~icons/solar/menu-dots-bold-duotone';
 import IconShare from '~icons/solar/share-bold-duotone';
 import IconTrash from '~icons/solar/trash-bin-trash-bold-duotone';
-import { DeleteConfirmation } from './DeleteConfirmation';
+import { DeleteConfirmation } from '../../DeleteConfirmation';
 import FileIcon from './FileIcon';
 import FilePreviewModal from './FilePreviewModal';
 

@@ -7,7 +7,83 @@ import { z } from 'zod/v4';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient } from '../utils';
 
+const createBucketSchema = z.object({
+  name: z
+    .string({ error: 'Bucket name is required' })
+    .min(3, 'Bucket name must be at least 3 characters')
+    .max(64, 'Bucket name must be at most 64 characters')
+    .regex(
+      /^[a-z0-9-]+$/,
+      'Bucket name can only contain lowercase letters (a-z), numbers (0-9), and hyphens (-)'
+    ),
+  locationHint: z.enum(['apac', 'eeur', 'enam', 'weur', 'wnam']).optional(),
+  storageClass: z.enum(['Standard', 'InfrequentAccess']).optional(),
+});
+
+const contentByPrefixSchema = z.object({
+  prefix: z.string().optional(),
+});
+
+const fileSchema = z.object({
+  name: z.string({ error: 'Name is required' }),
+  key: z.string({ error: 'Key is required' }),
+});
+
 const bucketsRouter = new Hono<AuthHonoEnv>()
+  .post(
+    '/',
+    zValidator('json', createBucketSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    async (c) => {
+      const { name, locationHint, storageClass } = c.req.valid('json');
+
+      const cloudflare = new Cloudflare({
+        apiToken: c.env.CLOUDFLARE_API_TOKEN,
+      });
+
+      try {
+        const response = await cloudflare.r2.buckets.create({
+          account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+          name,
+          locationHint,
+          storageClass,
+        });
+
+        return c.json({
+          data: response,
+          message: 'Bucket created successfully',
+        });
+      } catch (error) {
+        if (error instanceof Cloudflare.APIError) {
+          return c.json(
+            {
+              data: null,
+              message: error.errors[0].message || 'Failed to create bucket',
+            },
+            error.status || 400
+          );
+        }
+
+        console.error('Error creating bucket:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Internal server error',
+          },
+          500
+        );
+      }
+    }
+  )
   .get('/', async (c) => {
     const cloudflare = new Cloudflare({
       apiToken: c.env.CLOUDFLARE_API_TOKEN,
@@ -127,7 +203,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       message: 'Success',
     });
   })
-  .get('/:name', zValidator('query', z.object({ prefix: z.string().optional() })), async (c) => {
+  .get('/:name', zValidator('query', contentByPrefixSchema), async (c) => {
     const { name } = c.req.param();
     const prefix = c.req.query('prefix') || '';
 
@@ -221,13 +297,17 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get(
     '/:name/file/:key',
-    zValidator(
-      'param',
-      z.object({
-        name: z.string({ error: 'Name is required' }),
-        key: z.string({ error: 'Key is required' }),
-      })
-    ),
+    zValidator('param', fileSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
     async (c) => {
       const { name, key } = c.req.param();
 

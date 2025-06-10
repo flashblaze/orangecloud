@@ -9,8 +9,8 @@ import {
 } from 'react-router';
 
 import Breadcrumb from '~/components/Breadcrumb';
-import FileItem from '~/components/FileItem';
 import ThemeToggle from '~/components/ThemeToggle';
+import FileItem from '~/components/modules/bucket/FileItem';
 import { useEnv } from '~/context/use-env';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { cn } from '~/utils';
