@@ -12,6 +12,7 @@ import IconTrash from '~icons/solar/trash-bin-trash-bold-duotone';
 import { DeleteConfirmation } from '../../DeleteConfirmation';
 import FileIcon from './FileIcon';
 import FilePreviewModal from './FilePreviewModal';
+import ShareModal from './ShareModal';
 
 export interface FileSystemItem {
   key: string;
@@ -40,6 +41,7 @@ const formatDate = (dateString: string): string => {
 const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
   const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] =
     useDisclosure(false);
+  const [shareModalOpened, { open: openShareModal, close: closeShareModal }] = useDisclosure(false);
   const env = useEnv();
   const deleteFile = useDeleteFile({ apiUrl: env.apiUrl });
 
@@ -56,6 +58,10 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
   const handleDeleteFile = useCallback(() => {
     openDeleteConfirm();
   }, [openDeleteConfirm]);
+
+  const handleShareFile = useCallback(() => {
+    openShareModal();
+  }, [openShareModal]);
 
   const confirmDeleteFile = useCallback(() => {
     deleteFile.mutate({
@@ -74,7 +80,15 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
         </Menu.Target>
 
         <Menu.Dropdown>
-          <Menu.Item leftSection={<IconShare className="h-4 w-4" />}>Share</Menu.Item>
+          <Menu.Item
+            leftSection={<IconShare className="h-4 w-4" />}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleShareFile();
+            }}
+          >
+            Share
+          </Menu.Item>
           <Menu.Item
             leftSection={<IconTrash className="h-4 w-4" />}
             className="text-red-500 dark:text-red-400"
@@ -88,7 +102,7 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
         </Menu.Dropdown>
       </Menu>
     ),
-    [handleDeleteFile]
+    [handleDeleteFile, handleShareFile]
   );
 
   const itemContent = (
@@ -177,6 +191,13 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
           file={item}
           bucketName={bucketName}
         />
+        <ShareModal
+          opened={shareModalOpened}
+          onClose={closeShareModal}
+          bucketName={bucketName}
+          fileKey={item.key}
+          fileName={item.name}
+        />
         <DeleteConfirmation
           opened={deleteConfirmOpened}
           onClose={closeDeleteConfirm}
@@ -193,6 +214,13 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
   return (
     <>
       {itemContent}
+      <ShareModal
+        opened={shareModalOpened}
+        onClose={closeShareModal}
+        bucketName={bucketName}
+        fileKey={item.key}
+        fileName={item.name}
+      />
       <DeleteConfirmation
         opened={deleteConfirmOpened}
         onClose={closeDeleteConfirm}

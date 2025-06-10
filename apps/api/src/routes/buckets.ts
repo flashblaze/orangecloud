@@ -408,6 +408,43 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         );
       }
     }
-  );
+  )
+  .get('/:name/domains', async (c) => {
+    const { name } = c.req.param();
+
+    const cloudflare = new Cloudflare({
+      apiToken: c.env.CLOUDFLARE_API_TOKEN,
+    });
+
+    try {
+      const response = await cloudflare.r2.buckets.domains.custom.list(name, {
+        account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+      });
+
+      return c.json({
+        data: response.domains || [],
+        message: 'Success',
+      });
+    } catch (error) {
+      console.error('Error fetching custom domains:', error);
+      if (error instanceof Cloudflare.APIError) {
+        return c.json(
+          {
+            data: [],
+            message: error.errors[0]?.message || 'Failed to fetch custom domains',
+          },
+          error.status || 500
+        );
+      }
+
+      return c.json(
+        {
+          data: [],
+          message: 'Internal server error',
+        },
+        500
+      );
+    }
+  });
 
 export default bucketsRouter;

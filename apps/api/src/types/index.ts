@@ -36,3 +36,15 @@ export type FileSystemItem = {
   lastModified?: string;
   etag?: string;
 };
+
+export type CustomDomain = {
+  domain: string;
+  enabled: boolean;
+  status?: {
+    ownership: 'active' | 'pending' | 'deactivated';
+    ssl: 'active' | 'pending' | 'initializing' | 'error';
+  };
+  minTLS?: '1.0' | '1.1' | '1.2' | '1.3';
+  zoneId?: string;
+  zoneName?: string;
+};
