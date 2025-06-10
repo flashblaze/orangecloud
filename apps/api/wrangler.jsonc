@@ -5,10 +5,10 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "orangecloud-api",
-  "compatibility_date": "2025-06-04",
+  "compatibility_date": "2025-06-10",
   "main": "./src/index.ts",
   "vars": {
-    "NODE_VERSION": "20.17.0",
+    "NODE_VERSION": "22.14.0",
     "ENVIRONMENT": "production",
     "VALID_ORIGIN_URLS": "https://orangecloud.app,https://slice.orangecloud.app"
   },

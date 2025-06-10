@@ -3,7 +3,7 @@
 // Runtime types generated with workerd@1.20250525.0 2025-06-04 nodejs_compat,nodejs_compat_populate_process_env
 declare namespace Cloudflare {
 	interface Env {
-		NODE_VERSION: "20.17.0";
+		NODE_VERSION: "22.14.0";
 		CLOUDFLARE_API_TOKEN: string;
 		CLOUDFLARE_ACCOUNT_ID: string;
 		CLOUDFLARE_R2_ACCESS_KEY: string;
