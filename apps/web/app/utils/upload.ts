@@ -85,11 +85,12 @@ const getOptimalSettings = () => {
   const quality = getConnectionQuality();
 
   if (mobile) {
+    // Mobile browsers have stricter limitations regardless of connection speed
     switch (quality) {
       case 'fast':
-        return { chunkSize: CHUNK_SIZE, concurrency: 3 }; // Use desktop settings for fast mobile
+        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 2 }; // More conservative for mobile browsers
       case 'medium':
-        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 2 };
+        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 1 };
       case 'slow':
         return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 1 };
     }

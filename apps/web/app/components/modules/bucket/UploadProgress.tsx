@@ -1,4 +1,4 @@
-import { ActionIcon, Button, Progress, ScrollArea, Stack } from '@mantine/core';
+import { ActionIcon, Button, Progress, Stack } from '@mantine/core';
 import { useState } from 'react';
 
 import type { UploadFile } from '~/utils/upload';
@@ -75,7 +75,7 @@ export default function UploadProgress({
   return (
     <div className="fixed right-0 bottom-0 left-0 z-50 border-gray-200 border-t bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
       {/* Header */}
-      <div className="flex items-center justify-between border-gray-200 border-b bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex flex-col gap-3 border-gray-200 border-b bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center gap-3">
           <Button
             size="xs"
@@ -123,9 +123,9 @@ export default function UploadProgress({
         </div>
       )}
 
-      {/* File List */}
+      {/* File List - Fixed height with independent scrolling */}
       {isExpanded && (
-        <ScrollArea className="max-h-80">
+        <div className="max-h-80 overflow-y-auto overscroll-contain">
           <Stack gap="xs" className="p-4">
             {uploads.map((upload) => (
               <div
@@ -186,7 +186,7 @@ export default function UploadProgress({
               </div>
             ))}
           </Stack>
-        </ScrollArea>
+        </div>
       )}
     </div>
   );
