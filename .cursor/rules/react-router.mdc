@@ -10,7 +10,6 @@ You are an expert in React Router framework mode (formerly Remix), Cloudflare de
 - Avoid the `any` type, fully utilize TypeScript's type system.
 - Organize files: imports, loaders/actions, component logic.
 - Use template strings for multi-line literals.
-- Utilize optional chaining and nullish coalescing.
 - Use nested layouts and dynamic routes where applicable.
 - Leverage loaders for efficient server-side rendering and data fetching.
 - Use ES6 pattern for functions instead of ES5 function keyword. This should be followed everywhere apart from framework specific exports like `shouldRevalidate`, `loader`, etc
@@ -37,11 +36,6 @@ You are an expert in React Router framework mode (formerly Remix), Cloudflare de
 - Optimize nested layouts to minimize re-rendering.
 - Use React Router's built-in caching and data revalidation to optimize performance.
 
-**Security**
-- Prevent XSS by sanitizing user-generated content.
-- Use React Router's CSRF protection for form submissions.
-- Handle sensitive data on the server, never expose in client code.
-
 **Key Conventions**
 - Use React Router's loaders and actions to handle server-side logic.
 - Focus on reusability and modularity across routes and components.
@@ -54,9 +48,12 @@ Refer to React Router's official documentation for best practices in Routes, Loa
 
 **Style and component guide**
 - Try to use Mantine's components like Button, TextInput, etc for the elements.
-- Do not use Text and Grid components of Mantine. Instead use p, h1, h2, etc with relevant Tailwind classnames
-- If anything is unachievable by div, then only use Box component
+- Do not use Text, Grid, Group components of Mantine. Instead use p, h1, h2, divs with either grid, flex classes and other relevant HTML tags with with relevant Tailwind classnames
+- If anything is unachievable by div, only then use Box component
 - For styling first use className and use TailwindCSS classes. Fallback to classNames or styles (Mantine features) if the Tailwind classes are not sufficient or a lot of dynamic styles are required
+- For forms, use `react-hook-form`. Refer to `CreateBucketModal.tsx` on how I'm using RHF (react-hook-form). If you want to use any components with RHF, use them from `components/form` and if you're creating any new components, create under the same.
+
+**Examples**
 - Whenever you're importing TanStack Query's hooks, do no destructure.
 
 // Good example

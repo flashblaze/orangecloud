@@ -1,5 +1,7 @@
-import { ActionIcon, Card, Tooltip } from '@mantine/core';
-import { useState } from 'react';
+import { ActionIcon, Card, Menu, Tooltip } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { notifications } from '@mantine/notifications';
+import { useRef, useState } from 'react';
 import {
   Link,
   type ShouldRevalidateFunctionArgs,
@@ -10,14 +12,19 @@ import {
 
 import Breadcrumb from '~/components/Breadcrumb';
 import ThemeToggle from '~/components/ThemeToggle';
+import CreateFolderModal from '~/components/modules/bucket/CreateFolderModal';
 import FileItem from '~/components/modules/bucket/FileItem';
 import { useEnv } from '~/context/use-env';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { cn } from '~/utils';
 import { createClient } from '~/utils/client';
+import IconPlus from '~icons/solar/add-circle-bold-duotone';
 import IconArrowLeft from '~icons/solar/arrow-left-bold-duotone';
 import IconChecklist from '~icons/solar/checklist-bold-duotone';
+import IconFile from '~icons/solar/file-bold-duotone';
+import IconFolder from '~icons/solar/folder-bold-duotone';
 import IconFolderOpen from '~icons/solar/folder-open-bold-duotone';
+import IconUpload from '~icons/solar/upload-bold-duotone';
 import IconGrid from '~icons/solar/widget-4-bold-duotone';
 import type { Route } from './+types/bucket';
 
@@ -66,6 +73,10 @@ const Bucket = () => {
   const [searchParams] = useSearchParams();
   const prefix = searchParams.get('prefix') || '';
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const [createFolderModalOpened, { open: openCreateFolderModal, close: closeCreateFolderModal }] =
+    useDisclosure(false);
 
   const bucketContentByName = useBucketContentByName({
     name,
@@ -73,6 +84,76 @@ const Bucket = () => {
     enabled: !!name,
     apiUrl,
   });
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const fileCount = files.length;
+      const fileList = Array.from(files);
+
+      console.log('File upload:', {
+        bucketName: name,
+        currentPrefix: prefix,
+        files: fileList,
+      });
+
+      notifications.show({
+        title: 'Files uploaded successfully',
+        message: `${fileCount} file${fileCount > 1 ? 's' : ''} uploaded to ${name}`,
+        color: 'green',
+      });
+
+      // TODO: Implement actual file upload logic
+
+      // Reset the input
+      event.target.value = '';
+    }
+  };
+
+  const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      const fileCount = files.length;
+      const fileList = Array.from(files);
+
+      console.log('Folder upload:', {
+        bucketName: name,
+        currentPrefix: prefix,
+        files: fileList,
+      });
+
+      notifications.show({
+        title: 'Folder uploaded successfully',
+        message: `${fileCount} file${fileCount > 1 ? 's' : ''} from folder uploaded to ${name}`,
+        color: 'green',
+      });
+
+      // TODO: Implement actual folder upload logic
+
+      // Reset the input
+      event.target.value = '';
+    }
+  };
+
+  const handleCreateFolder = (folderName: string) => {
+    console.log('New folder creation:', {
+      bucketName: name,
+      currentPrefix: prefix,
+      folderName: folderName.trim(),
+    });
+
+    notifications.show({
+      title: 'Folder created successfully',
+      message: `"${folderName}" folder created in ${name}`,
+      color: 'green',
+    });
+
+    // TODO: Implement actual folder creation logic
+  };
+
+  const handleNewFolder = () => {
+    openCreateFolderModal();
+  };
 
   // Create skeleton items for loading state
   const renderSkeletonItems = () => {
@@ -155,8 +236,38 @@ const Bucket = () => {
           </div>
         </div>
 
-        {/* Breadcrumb Navigation */}
-        <Breadcrumb bucketName={name} prefix={prefix} className="mb-4" />
+        {/* Breadcrumb Navigation with Add Button */}
+        <div className="flex items-center justify-between">
+          <Breadcrumb bucketName={name} prefix={prefix} className="mb-4" />
+          <Menu shadow="md" width={200} position="bottom-end">
+            <Menu.Target>
+              <Tooltip label="Add files or folders">
+                <ActionIcon size="lg" variant="filled">
+                  <IconPlus className="h-5 w-5" />
+                </ActionIcon>
+              </Tooltip>
+            </Menu.Target>
+
+            <Menu.Dropdown>
+              <Menu.Label>Add to bucket</Menu.Label>
+              <Menu.Item leftSection={<IconFolder className="h-4 w-4" />} onClick={handleNewFolder}>
+                New folder
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconFile className="h-4 w-4" />}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                File upload
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconUpload className="h-4 w-4" />}
+                onClick={() => folderInputRef.current?.click()}
+              >
+                Folder upload
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </div>
 
         {/* Content - Loading, Error, or Data */}
         {bucketContentByName.isLoading ? (
@@ -199,7 +310,31 @@ const Bucket = () => {
             </div>
           </Card>
         )}
+
+        {/* Hidden file inputs */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          multiple
+          className="hidden"
+        />
+        <input
+          type="file"
+          ref={folderInputRef}
+          onChange={handleFolderUpload}
+          // @ts-ignore - webkitdirectory is not in TypeScript types
+          webkitdirectory=""
+          multiple
+          className="hidden"
+        />
       </div>
+
+      <CreateFolderModal
+        opened={createFolderModalOpened}
+        onClose={closeCreateFolderModal}
+        onSubmit={handleCreateFolder}
+      />
     </section>
   );
 };

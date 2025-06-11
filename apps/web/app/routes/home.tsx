@@ -6,6 +6,7 @@ import ThemeToggle from '~/components/ThemeToggle';
 import CreateBucketModal from '~/components/modules/bucket/CreateBucketModal';
 import { formatFileSize } from '~/utils';
 import { createClient } from '~/utils/client';
+import IconPlus from '~icons/solar/add-circle-bold-duotone';
 import IconDatabase from '~icons/solar/database-bold-duotone';
 import IconFlashDrive from '~icons/solar/flash-drive-bold-duotone';
 import IconTransfer from '~icons/solar/transfer-horizontal-bold-duotone';
@@ -111,7 +112,7 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900 text-xl dark:text-gray-100">Your Buckets</h2>
             <ActionIcon variant="filled" size="lg" onClick={() => setCreateBucketModalOpened(true)}>
-              <span className="text-xl">+</span>
+              <IconPlus className="h-5 w-5" />
             </ActionIcon>
           </div>
 
