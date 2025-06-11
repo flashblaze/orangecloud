@@ -43,7 +43,7 @@ export interface UploadProgress {
 }
 
 export const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
-export const MOBILE_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks for mobile
+export const MOBILE_CHUNK_SIZE = 8 * 1024 * 1024; // 8MB chunks for mobile (increased from 5MB)
 export const MULTIPART_THRESHOLD = 100 * 1024 * 1024; // 100MB threshold
 
 // Mobile detection utility
@@ -56,14 +56,47 @@ const isMobile = (): boolean => {
   );
 };
 
-// Get optimal chunk size based on device
-const getChunkSize = (): number => {
-  return isMobile() ? MOBILE_CHUNK_SIZE : CHUNK_SIZE;
+// Connection quality detection
+const getConnectionQuality = (): 'fast' | 'medium' | 'slow' => {
+  if (typeof window === 'undefined') return 'medium';
+
+  // Use Network Information API if available
+  const connection =
+    (navigator as any).connection ||
+    (navigator as any).mozConnection ||
+    (navigator as any).webkitConnection;
+
+  if (connection) {
+    const downlink = connection.downlink; // Mbps
+    const effectiveType = connection.effectiveType;
+
+    if (effectiveType === '4g' && downlink > 10) return 'fast';
+    if (effectiveType === '4g' || (effectiveType === '3g' && downlink > 1)) return 'medium';
+    return 'slow';
+  }
+
+  // Fallback: assume medium quality
+  return 'medium';
 };
 
-// Get optimal concurrency based on device
-const getConcurrencyLimit = (): number => {
-  return isMobile() ? 1 : 2; // Reduced from 3 to 2 for better stability
+// Get optimal settings based on device and connection
+const getOptimalSettings = () => {
+  const mobile = isMobile();
+  const quality = getConnectionQuality();
+
+  if (mobile) {
+    switch (quality) {
+      case 'fast':
+        return { chunkSize: CHUNK_SIZE, concurrency: 3 }; // Use desktop settings for fast mobile
+      case 'medium':
+        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 2 };
+      case 'slow':
+        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 1 };
+    }
+  }
+
+  // Desktop settings
+  return { chunkSize: CHUNK_SIZE, concurrency: 3 };
 };
 
 export const generateUniqueId = (): string => {
@@ -121,7 +154,7 @@ const shouldUseMultipart = (fileSize: number): boolean => {
 };
 
 export const calculatePartCount = (fileSize: number): number => {
-  const chunkSize = getChunkSize();
+  const { chunkSize } = getOptimalSettings();
   return Math.ceil(fileSize / chunkSize);
 };
 
@@ -257,17 +290,19 @@ export const multipartUpload = async ({
   signal,
 }: MultipartUploadOptions): Promise<void> => {
   const startTime = Date.now();
-  const chunkSize = getChunkSize();
+  const { chunkSize, concurrency } = getOptimalSettings();
   const partCount = Math.ceil(file.size / chunkSize);
   let uploadId: string | undefined;
   let fileKey: string | undefined;
 
+  const connectionQuality = getConnectionQuality();
   console.log(`Starting multipart upload on ${isMobile() ? 'mobile' : 'desktop'} device:`, {
     fileName,
     fileSize: file.size,
     chunkSize,
     partCount,
-    concurrency: getConcurrencyLimit(),
+    concurrency,
+    connectionQuality,
   });
 
   try {
@@ -307,9 +342,8 @@ export const multipartUpload = async ({
       onUploadIdReceived?.(uploadId, fileKey);
     }
 
-    // Upload parts with device-optimized concurrency
+    // Upload parts with adaptive concurrency
     const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
-    const concurrencyLimit = getConcurrencyLimit();
     let uploadedBytes = 0;
 
     const uploadPart = async (partNumber: number, partUrl: string, retries = 3): Promise<void> => {
@@ -322,10 +356,14 @@ export const multipartUpload = async ({
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
 
-            // Set timeout for mobile devices
-            if (isMobile()) {
-              xhr.timeout = 120000; // 2 minutes timeout for mobile
-            }
+            // Set timeout based on connection quality (faster timeout for better UX)
+            const timeout =
+              connectionQuality === 'fast'
+                ? 60000
+                : connectionQuality === 'medium'
+                  ? 90000
+                  : 120000;
+            xhr.timeout = timeout;
 
             if (signal) {
               signal.addEventListener('abort', () => {
@@ -381,16 +419,16 @@ export const multipartUpload = async ({
             throw error; // Last attempt failed
           }
 
-          // Wait before retry (exponential backoff)
-          const delay = Math.min(1000 * 2 ** (attempt - 1), 5000);
+          // Shorter retry delay for better responsiveness
+          const delay = Math.min(500 * 2 ** (attempt - 1), 2000);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     };
 
-    // Upload parts with concurrency control optimized for device
-    for (let i = 0; i < partUrls.length; i += concurrencyLimit) {
-      const batch = partUrls.slice(i, i + concurrencyLimit);
+    // Upload parts with adaptive concurrency control
+    for (let i = 0; i < partUrls.length; i += concurrency) {
+      const batch = partUrls.slice(i, i + concurrency);
       const batchPromises = batch.map((url: string, index: number) =>
         uploadPart(i + index + 1, url)
       );
