@@ -6,6 +6,12 @@ import { z } from 'zod/v4';
 
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient } from '../utils';
+import {
+  completeMultipartUpload,
+  generateMultipartUploadUrls,
+  generatePresignedUploadUrl,
+  initializeMultipartUpload,
+} from '../utils/upload';
 
 const createBucketSchema = z.object({
   name: z
@@ -34,6 +40,19 @@ const createFolderSchema = z.object({
     .string()
     .min(1, 'Folder name is required')
     .regex(/^[^/\\:*?"<>|]+$/, 'Invalid folder name'),
+});
+
+const generateUploadUrlSchema = z.object({
+  fileName: z.string().min(1, 'File name is required'),
+  fileSize: z.number().min(1, 'File size must be greater than 0'),
+  contentType: z.string().optional(),
+});
+
+const multipartUploadSchema = z.object({
+  fileName: z.string().min(1, 'File name is required'),
+  fileSize: z.number().min(1, 'File size must be greater than 0'),
+  contentType: z.string().optional(),
+  partCount: z.number().min(1).max(10000),
 });
 
 const bucketsRouter = new Hono<AuthHonoEnv>()
@@ -466,26 +485,19 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       const { expiresInSeconds } = c.req.valid('json');
 
       const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(key)}`;
 
       try {
-        // Add expires as a query parameter before signing
-        const urlObj = new URL(url);
-        urlObj.searchParams.set('X-Amz-Expires', expiresInSeconds.toString());
-
-        const requestWithExpires = new Request(urlObj.toString(), { method: 'GET' });
-
-        const signedUrl = await aws.sign(requestWithExpires, {
-          aws: {
-            signQuery: true,
-          },
-        });
-
-        console.log('Generated presigned URL:', signedUrl.url);
+        const presignedUrl = await generatePresignedUploadUrl(
+          aws,
+          c.env.CLOUDFLARE_ACCOUNT_ID,
+          name,
+          key,
+          expiresInSeconds
+        );
 
         return c.json({
           data: {
-            presignedUrl: signedUrl.url,
+            presignedUrl,
             expiresInSeconds,
             expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
           },
@@ -571,6 +583,284 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         });
       } catch (error) {
         console.error('Error creating folder:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Internal server error',
+          },
+          500
+        );
+      }
+    }
+  )
+  .post(
+    '/:name/upload-url',
+    zValidator('json', generateUploadUrlSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    zValidator('query', contentByPrefixSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    async (c) => {
+      const { name } = c.req.param();
+      const { fileName, fileSize, contentType } = c.req.valid('json');
+      const prefix = c.req.query('prefix') || '';
+
+      const fileKey = prefix ? `${prefix}${fileName}` : fileName;
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+      try {
+        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}`;
+        const urlObj = new URL(url);
+        urlObj.searchParams.set('X-Amz-Expires', '7200'); // 2 hours expiry
+
+        const headers: Record<string, string> = {};
+        if (contentType) {
+          headers['Content-Type'] = contentType;
+        }
+
+        const request = new Request(urlObj.toString(), {
+          method: 'PUT',
+          headers,
+        });
+
+        const signedUrl = await aws.sign(request, {
+          aws: {
+            signQuery: true,
+          },
+        });
+
+        return c.json({
+          data: {
+            uploadUrl: signedUrl.url,
+            fileKey,
+            fileName,
+            fileSize,
+            bucketName: name,
+            prefix,
+          },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error generating upload URL:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Failed to generate upload URL',
+          },
+          500
+        );
+      }
+    }
+  )
+  .post(
+    '/:name/multipart-upload',
+    zValidator('json', multipartUploadSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    zValidator('query', contentByPrefixSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    async (c) => {
+      const { name } = c.req.param();
+      const { fileName, fileSize, contentType, partCount } = c.req.valid('json');
+      const prefix = c.req.query('prefix') || '';
+
+      const fileKey = prefix ? `${prefix}${fileName}` : fileName;
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+      try {
+        const uploadId = await initializeMultipartUpload(
+          aws,
+          c.env.CLOUDFLARE_ACCOUNT_ID,
+          name,
+          fileKey,
+          contentType
+        );
+
+        const partUrls = await generateMultipartUploadUrls(
+          aws,
+          c.env.CLOUDFLARE_ACCOUNT_ID,
+          name,
+          fileKey,
+          uploadId,
+          partCount
+        );
+
+        return c.json({
+          data: {
+            uploadId,
+            fileKey,
+            fileName,
+            fileSize,
+            partCount,
+            partUrls,
+            bucketName: name,
+            prefix,
+          },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error initializing multipart upload:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Failed to initialize multipart upload',
+          },
+          500
+        );
+      }
+    }
+  )
+  .post(
+    '/:name/complete-multipart',
+    zValidator(
+      'json',
+      z.object({
+        uploadId: z.string().min(1, 'Upload ID is required'),
+        fileKey: z.string().min(1, 'File key is required'),
+        parts: z
+          .array(
+            z.object({
+              partNumber: z.number().min(1),
+              etag: z.string().min(1),
+            })
+          )
+          .min(1, 'At least one part is required'),
+      }),
+      (result, c) => {
+        if (!result.success) {
+          return c.json(
+            {
+              data: null,
+              message: result.error.issues[0].message,
+            },
+            400
+          );
+        }
+      }
+    ),
+    async (c) => {
+      const { name } = c.req.param();
+      const { uploadId, fileKey, parts } = c.req.valid('json');
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+      try {
+        await completeMultipartUpload(
+          aws,
+          c.env.CLOUDFLARE_ACCOUNT_ID,
+          name,
+          fileKey,
+          uploadId,
+          parts
+        );
+
+        return c.json({
+          data: {
+            fileKey,
+            bucketName: name,
+          },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error completing multipart upload:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Failed to complete multipart upload',
+          },
+          500
+        );
+      }
+    }
+  )
+  .post(
+    '/:name/abort-multipart',
+    zValidator(
+      'json',
+      z.object({
+        uploadId: z.string().min(1, 'Upload ID is required'),
+        fileKey: z.string().min(1, 'File key is required'),
+      }),
+      (result, c) => {
+        if (!result.success) {
+          return c.json(
+            {
+              data: null,
+              message: result.error.issues[0].message,
+            },
+            400
+          );
+        }
+      }
+    ),
+    async (c) => {
+      const { name } = c.req.param();
+      const { uploadId, fileKey } = c.req.valid('json');
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+      try {
+        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}?uploadId=${uploadId}`;
+
+        const abortResponse = await aws.fetch(url, {
+          method: 'DELETE',
+        });
+
+        if (!abortResponse.ok) {
+          console.error(`Failed to abort multipart upload: ${abortResponse.status}`);
+          return c.json(
+            {
+              data: null,
+              message: 'Failed to abort multipart upload',
+            },
+            500
+          );
+        }
+
+        return c.json({
+          data: {
+            uploadId,
+            fileKey,
+            bucketName: name,
+          },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error aborting multipart upload:', error);
         return c.json(
           {
             data: null,

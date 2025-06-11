@@ -1,6 +1,5 @@
 import { ActionIcon, Card, Menu, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
 import { useRef, useState } from 'react';
 import {
   Link,
@@ -14,7 +13,9 @@ import Breadcrumb from '~/components/Breadcrumb';
 import ThemeToggle from '~/components/ThemeToggle';
 import CreateFolderModal from '~/components/modules/bucket/CreateFolderModal';
 import FileItem from '~/components/modules/bucket/FileItem';
+import UploadProgress from '~/components/modules/bucket/UploadProgress';
 import { useEnv } from '~/context/use-env';
+import { useFileUpload } from '~/hooks/useFileUpload';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { cn } from '~/utils';
 import { createClient } from '~/utils/client';
@@ -85,51 +86,30 @@ const Bucket = () => {
     apiUrl,
   });
 
+  // File upload hook
+  const fileUpload = useFileUpload({
+    apiUrl,
+    bucketName: name || '',
+    prefix,
+  });
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      const fileCount = files.length;
-      const fileList = Array.from(files);
-
-      console.log('File upload:', {
-        bucketName: name,
-        currentPrefix: prefix,
-        files: fileList,
-      });
-
-      notifications.show({
-        title: 'Files uploaded successfully',
-        message: `${fileCount} file${fileCount > 1 ? 's' : ''} uploaded to ${name}`,
-        color: 'green',
-      });
-
-      // TODO: Implement actual file upload logic
-
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      if (files.length > 0) {
+        fileUpload.startUpload(files);
+      }
       // Reset the input
       event.target.value = '';
     }
   };
 
   const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      const fileCount = files.length;
-      const fileList = Array.from(files);
-
-      console.log('Folder upload:', {
-        bucketName: name,
-        currentPrefix: prefix,
-        files: fileList,
-      });
-
-      notifications.show({
-        title: 'Folder uploaded successfully',
-        message: `${fileCount} file${fileCount > 1 ? 's' : ''} from folder uploaded to ${name}`,
-        color: 'green',
-      });
-
-      // TODO: Implement actual folder upload logic
-
+    if (event.target.files) {
+      const files = Array.from(event.target.files);
+      if (files.length > 0) {
+        fileUpload.startUpload(files);
+      }
       // Reset the input
       event.target.value = '';
     }
@@ -179,148 +159,161 @@ const Bucket = () => {
   const items = bucketData?.data?.items || [];
 
   return (
-    <section className="container mx-auto mt-10 px-8">
-      <div className="space-y-10">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="no-underline">
-              <Tooltip label="Back to buckets">
-                <ActionIcon size="lg" variant="default">
-                  <IconArrowLeft className="h-5 w-5" />
-                </ActionIcon>
-              </Tooltip>
-            </Link>
-            <p className="font-bold text-2xl text-gray-900 dark:text-gray-100">{name}</p>
-          </div>
-
-          {/* View Toggle and Theme Toggle */}
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Tooltip label="List view">
-              <ActionIcon
-                size="lg"
-                variant={viewMode === 'list' ? 'filled' : 'default'}
-                color={viewMode === 'list' ? 'primary' : 'gray'}
-                onClick={() => setViewMode('list')}
-              >
-                <IconChecklist className="h-5 w-5" />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Grid view">
-              <ActionIcon
-                size="lg"
-                variant={viewMode === 'grid' ? 'filled' : 'default'}
-                color={viewMode === 'grid' ? 'primary' : 'gray'}
-                onClick={() => setViewMode('grid')}
-              >
-                <IconGrid className="h-5 w-5" />
-              </ActionIcon>
-            </Tooltip>
-          </div>
-        </div>
-
-        {/* Breadcrumb Navigation with Add Button */}
-        <div className="flex items-center justify-between">
-          <Breadcrumb bucketName={name} prefix={prefix} className="mb-4" />
-          <Menu shadow="md" width={200} position="bottom-end">
-            <Menu.Target>
-              <Tooltip label="Add files or folders">
-                <ActionIcon size="lg" variant="filled">
-                  <IconPlus className="h-5 w-5" />
-                </ActionIcon>
-              </Tooltip>
-            </Menu.Target>
-
-            <Menu.Dropdown>
-              <Menu.Label>Add to bucket</Menu.Label>
-              <Menu.Item leftSection={<IconFolder className="h-4 w-4" />} onClick={handleNewFolder}>
-                New folder
-              </Menu.Item>
-              <Menu.Item
-                leftSection={<IconFile className="h-4 w-4" />}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                File upload
-              </Menu.Item>
-              <Menu.Item
-                leftSection={<IconUpload className="h-4 w-4" />}
-                onClick={() => folderInputRef.current?.click()}
-              >
-                Folder upload
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-        </div>
-
-        {/* Content - Loading, Error, or Data */}
-        {bucketContentByName.isLoading ? (
-          <div
-            className={cn(
-              'grid grid-cols-1 gap-2',
-              viewMode === 'grid' &&
-                'grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-            )}
-          >
-            {renderSkeletonItems()}
-          </div>
-        ) : items.length > 0 ? (
-          <div
-            className={cn(
-              'grid grid-cols-1 gap-2',
-              viewMode === 'grid' &&
-                'grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-            )}
-          >
-            {items.map((item) => (
-              <FileItem key={item.key} item={item} bucketName={name} viewMode={viewMode} />
-            ))}
-          </div>
-        ) : (
-          <Card
-            padding="xl"
-            className="border border-card-border text-center hover:bg-card-background!"
-          >
-            <div className="flex flex-col items-center gap-4">
-              <IconFolderOpen className="h-12 w-12 text-gray-400 dark:text-gray-500" />
-              <div>
-                <p className="mb-1 font-medium text-gray-900 text-lg dark:text-gray-100">
-                  This folder is empty
-                </p>
-                <p className="text-gray-500 dark:text-gray-400">
-                  No files or folders found in this location
-                </p>
-              </div>
+    <>
+      <section className="container mx-auto mt-10 px-8">
+        <div className="space-y-10">
+          {/* Header with Back Button */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link to="/" className="no-underline">
+                <Tooltip label="Back to buckets">
+                  <ActionIcon size="lg" variant="default">
+                    <IconArrowLeft className="h-5 w-5" />
+                  </ActionIcon>
+                </Tooltip>
+              </Link>
+              <p className="font-bold text-2xl text-gray-900 dark:text-gray-100">{name}</p>
             </div>
-          </Card>
-        )}
 
-        {/* Hidden file inputs */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileUpload}
-          multiple
-          className="hidden"
-        />
-        <input
-          type="file"
-          ref={folderInputRef}
-          onChange={handleFolderUpload}
-          // @ts-ignore - webkitdirectory is not in TypeScript types
-          webkitdirectory=""
-          multiple
-          className="hidden"
-        />
-      </div>
+            {/* View Toggle and Theme Toggle */}
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Tooltip label="List view">
+                <ActionIcon
+                  size="lg"
+                  variant={viewMode === 'list' ? 'filled' : 'default'}
+                  color={viewMode === 'list' ? 'primary' : 'gray'}
+                  onClick={() => setViewMode('list')}
+                >
+                  <IconChecklist className="h-5 w-5" />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label="Grid view">
+                <ActionIcon
+                  size="lg"
+                  variant={viewMode === 'grid' ? 'filled' : 'default'}
+                  color={viewMode === 'grid' ? 'primary' : 'gray'}
+                  onClick={() => setViewMode('grid')}
+                >
+                  <IconGrid className="h-5 w-5" />
+                </ActionIcon>
+              </Tooltip>
+            </div>
+          </div>
 
-      <CreateFolderModal
-        opened={createFolderModalOpened}
-        onClose={closeCreateFolderModal}
-        name={name}
-        prefix={prefix}
+          {/* Breadcrumb Navigation with Add Button */}
+          <div className="flex items-center justify-between">
+            <Breadcrumb bucketName={name} prefix={prefix} className="mb-4" />
+            <Menu shadow="md" width={200} position="bottom-end">
+              <Menu.Target>
+                <Tooltip label="Add files or folders">
+                  <ActionIcon size="lg" variant="filled">
+                    <IconPlus className="h-5 w-5" />
+                  </ActionIcon>
+                </Tooltip>
+              </Menu.Target>
+
+              <Menu.Dropdown>
+                <Menu.Label>Add to bucket</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconFolder className="h-4 w-4" />}
+                  onClick={handleNewFolder}
+                >
+                  New folder
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconFile className="h-4 w-4" />}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  File upload
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconUpload className="h-4 w-4" />}
+                  onClick={() => folderInputRef.current?.click()}
+                >
+                  Folder upload
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </div>
+
+          {/* Content - Loading, Error, or Data */}
+          {bucketContentByName.isLoading ? (
+            <div
+              className={cn(
+                'grid grid-cols-1 gap-2',
+                viewMode === 'grid' &&
+                  'grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+              )}
+            >
+              {renderSkeletonItems()}
+            </div>
+          ) : items.length > 0 ? (
+            <div
+              className={cn(
+                'grid grid-cols-1 gap-2',
+                viewMode === 'grid' &&
+                  'grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+              )}
+            >
+              {items.map((item) => (
+                <FileItem key={item.key} item={item} bucketName={name} viewMode={viewMode} />
+              ))}
+            </div>
+          ) : (
+            <Card
+              padding="xl"
+              className="border border-card-border text-center hover:bg-card-background!"
+            >
+              <div className="flex flex-col items-center gap-4">
+                <IconFolderOpen className="h-12 w-12 text-gray-400 dark:text-gray-500" />
+                <div>
+                  <p className="mb-1 font-medium text-gray-900 text-lg dark:text-gray-100">
+                    This folder is empty
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No files or folders found in this location
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Hidden file inputs */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            multiple
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={folderInputRef}
+            onChange={handleFolderUpload}
+            // @ts-ignore - webkitdirectory is not in TypeScript types
+            webkitdirectory=""
+            multiple
+            className="hidden"
+          />
+        </div>
+
+        <CreateFolderModal
+          opened={createFolderModalOpened}
+          onClose={closeCreateFolderModal}
+          name={name}
+          prefix={prefix}
+        />
+      </section>
+
+      {/* Upload Progress Panel */}
+      <UploadProgress
+        uploads={fileUpload.uploads}
+        onCancel={fileUpload.cancelUpload}
+        onCancelAll={fileUpload.cancelAllUploads}
+        onDismiss={fileUpload.dismissCompleted}
       />
-    </section>
+    </>
   );
 };
 

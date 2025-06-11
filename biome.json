@@ -72,7 +72,7 @@
         "useYield": "error"
       },
       "suspicious": {
-        "noConsole": "warn",
+        "noConsole": "off",
         "noExplicitAny": "warn",
         "noAssignInExpressions": "error",
         "noAsyncPromiseExecutor": "error",
