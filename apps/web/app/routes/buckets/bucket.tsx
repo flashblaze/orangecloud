@@ -318,6 +318,7 @@ const Bucket = () => {
         opened={createFolderModalOpened}
         onClose={closeCreateFolderModal}
         name={name}
+        prefix={prefix}
       />
     </section>
   );

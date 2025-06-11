@@ -11,6 +11,7 @@ interface CreateFolderModalProps {
   opened: boolean;
   onClose: () => void;
   name: string;
+  prefix: string;
 }
 
 const schema = z.object({
@@ -20,7 +21,7 @@ const schema = z.object({
     .regex(/^[^/\\:*?"<>|]+$/, 'Invalid folder name'),
 });
 
-const CreateFolderModal = ({ opened, onClose, name }: CreateFolderModalProps) => {
+const CreateFolderModal = ({ opened, onClose, name, prefix }: CreateFolderModalProps) => {
   const { apiUrl } = useEnv();
   const createFolderMutation = useCreateFolder({ apiUrl });
 
@@ -36,7 +37,7 @@ const CreateFolderModal = ({ opened, onClose, name }: CreateFolderModalProps) =>
       {
         bucketName: name,
         folderName: data.folderName.trim(),
-        prefix: '',
+        prefix,
       },
       {
         onSuccess: () => {
@@ -61,7 +62,7 @@ const CreateFolderModal = ({ opened, onClose, name }: CreateFolderModalProps) =>
             label="Folder Name"
             placeholder="Enter folder name"
             leftSection={<IconFolder className="h-4 w-4" />}
-            autoFocus
+            disabled={createFolderMutation.isPending}
           />
 
           <Group justify="flex-end" gap="sm">
