@@ -3,12 +3,14 @@ import { Button, Group, Modal } from '@mantine/core';
 import { FormProvider, useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
 import ControlledTextInput from '~/components/form/ControlledTextInput';
+import { useEnv } from '~/context/use-env';
+import useCreateFolder from '~/queries/buckets/useCreateFolder';
 import IconFolder from '~icons/solar/folder-bold-duotone';
 
 interface CreateFolderModalProps {
   opened: boolean;
   onClose: () => void;
-  onSubmit: (folderName: string) => void;
+  name: string;
 }
 
 const schema = z.object({
@@ -18,7 +20,10 @@ const schema = z.object({
     .regex(/^[^/\\:*?"<>|]+$/, 'Invalid folder name'),
 });
 
-const CreateFolderModal = ({ opened, onClose, onSubmit }: CreateFolderModalProps) => {
+const CreateFolderModal = ({ opened, onClose, name }: CreateFolderModalProps) => {
+  const { apiUrl } = useEnv();
+  const createFolderMutation = useCreateFolder({ apiUrl });
+
   const methods = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -26,9 +31,19 @@ const CreateFolderModal = ({ opened, onClose, onSubmit }: CreateFolderModalProps
     },
   });
 
-  const handleSubmit = (data: z.infer<typeof schema>) => {
-    onSubmit(data.folderName);
-    handleClose();
+  const handleSubmit = async (data: z.infer<typeof schema>) => {
+    await createFolderMutation.mutateAsync(
+      {
+        bucketName: name,
+        folderName: data.folderName.trim(),
+        prefix: '',
+      },
+      {
+        onSuccess: () => {
+          handleClose();
+        },
+      }
+    );
   };
 
   const handleClose = () => {
@@ -50,10 +65,16 @@ const CreateFolderModal = ({ opened, onClose, onSubmit }: CreateFolderModalProps
           />
 
           <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={handleClose}>
+            <Button
+              variant="default"
+              onClick={handleClose}
+              disabled={createFolderMutation.isPending}
+            >
               Cancel
             </Button>
-            <Button type="submit">Create Folder</Button>
+            <Button type="submit" loading={createFolderMutation.isPending}>
+              Create Folder
+            </Button>
           </Group>
         </form>
       </FormProvider>

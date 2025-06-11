@@ -29,6 +29,13 @@ const fileSchema = z.object({
   key: z.string({ error: 'Key is required' }),
 });
 
+const createFolderSchema = z.object({
+  folderName: z
+    .string()
+    .min(1, 'Folder name is required')
+    .regex(/^[^/\\:*?"<>|]+$/, 'Invalid folder name'),
+});
+
 const bucketsRouter = new Hono<AuthHonoEnv>()
   .post(
     '/',
@@ -490,6 +497,84 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           {
             data: null,
             message: 'Failed to generate presigned URL',
+          },
+          500
+        );
+      }
+    }
+  )
+  .post(
+    '/:name/folder',
+    zValidator('json', createFolderSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    zValidator('query', contentByPrefixSchema, (result, c) => {
+      if (!result.success) {
+        return c.json(
+          {
+            data: null,
+            message: result.error.issues[0].message,
+          },
+          400
+        );
+      }
+    }),
+    async (c) => {
+      const { name } = c.req.param();
+      const { folderName } = c.req.valid('json');
+      const prefix = c.req.query('prefix') || '';
+
+      // Construct the folder key with prefix and trailing slash
+      const folderKey = prefix ? `${prefix}${folderName}/` : `${folderName}/`;
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(folderKey)}`;
+
+      try {
+        // Create an empty object to represent the folder
+        const createResponse = await aws.fetch(url, {
+          method: 'PUT',
+          body: '',
+          headers: {
+            'Content-Length': '0',
+            'Content-Type': 'application/x-directory',
+          },
+        });
+
+        if (!createResponse.ok) {
+          console.error(`Failed to create folder: ${createResponse.status}`);
+          return c.json(
+            {
+              data: null,
+              message: 'Failed to create folder',
+            },
+            500
+          );
+        }
+
+        return c.json({
+          data: {
+            folderKey,
+            folderName,
+            bucketName: name,
+            prefix,
+          },
+          message: 'Success',
+        });
+      } catch (error) {
+        console.error('Error creating folder:', error);
+        return c.json(
+          {
+            data: null,
+            message: 'Internal server error',
           },
           500
         );

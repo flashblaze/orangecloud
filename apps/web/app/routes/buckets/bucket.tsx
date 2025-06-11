@@ -135,22 +135,6 @@ const Bucket = () => {
     }
   };
 
-  const handleCreateFolder = (folderName: string) => {
-    console.log('New folder creation:', {
-      bucketName: name,
-      currentPrefix: prefix,
-      folderName: folderName.trim(),
-    });
-
-    notifications.show({
-      title: 'Folder created successfully',
-      message: `"${folderName}" folder created in ${name}`,
-      color: 'green',
-    });
-
-    // TODO: Implement actual folder creation logic
-  };
-
   const handleNewFolder = () => {
     openCreateFolderModal();
   };
@@ -333,7 +317,7 @@ const Bucket = () => {
       <CreateFolderModal
         opened={createFolderModalOpened}
         onClose={closeCreateFolderModal}
-        onSubmit={handleCreateFolder}
+        name={name}
       />
     </section>
   );
