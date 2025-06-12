@@ -203,8 +203,11 @@ export const simpleUpload = async ({
   const startTime = Date.now();
   const mobile = isMobile();
 
-  console.log(`[${fileName}] Starting simple upload on ${mobile ? 'mobile' : 'desktop'} device`, {
+  console.info(`[${fileName}] Starting simple upload`, {
+    device: mobile ? 'mobile' : 'desktop',
     fileSize: file.size,
+    fileType: file.type || 'unknown',
+    connection: (typeof navigator !== 'undefined' && (navigator as any).connection) || null,
   });
 
   // Get presigned URL
@@ -317,12 +320,15 @@ export const multipartUpload = async ({
   let fileKey: string | undefined;
 
   const connectionQuality = getConnectionQuality();
-  console.log(`[${fileName}] Starting multipart upload on ${isMobile() ? 'mobile' : 'desktop'}`, {
+  console.info(`[${fileName}] Starting multipart upload`, {
+    device: isMobile() ? 'mobile' : 'desktop',
     fileSize: file.size,
+    fileType: file.type || 'unknown',
     chunkSize,
     partCount,
     concurrency,
     connectionQuality,
+    connection: (typeof navigator !== 'undefined' && (navigator as any).connection) || null,
   });
 
   try {
@@ -578,6 +584,10 @@ const fetchWithRetry = async (
       return; // Success, no JSON parsing needed
     } catch (error: any) {
       lastError = error;
+
+      // Detailed log for this failed attempt
+      logNetworkError(attempt, url, options, error);
+
       if (options.signal?.aborted || error.name === 'AbortError') {
         throw lastError; // Don't retry on abort
       }
@@ -589,12 +599,22 @@ const fetchWithRetry = async (
       // Exponential backoff with jitter
       const baseDelay = isMobile() ? 2000 : 1000;
       const delay = Math.min(baseDelay * 2 ** (attempt - 1) + Math.random() * 1000, 30000);
-      console.warn(`Attempt ${attempt} failed. Retrying in ${Math.round(delay)}ms...`, {
-        url,
-        error: error.message,
-      });
+      console.warn(`Retrying in ${Math.round(delay)}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw lastError;
+};
+
+// Add a helper to log failed network attempts with rich contextual data
+const logNetworkError = (attempt: number, url: string, options: RequestInit, error: any) => {
+  console.warn('[upload][network] fetch attempt failed', {
+    attempt,
+    method: options.method || 'GET',
+    url,
+    headers: options.headers,
+    aborted: options.signal?.aborted,
+    errorName: error?.name,
+    errorMessage: error?.message,
+  });
 };
