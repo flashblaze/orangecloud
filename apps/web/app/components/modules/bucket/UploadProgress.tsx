@@ -39,10 +39,9 @@ export default function UploadProgress({
   }, 0);
   const overallProgress = totalSize > 0 ? Math.round((totalUploaded / totalSize) * 100) : 0;
 
-  const averageSpeed =
-    uploads
-      .filter((upload) => upload.status === 'uploading')
-      .reduce((sum, upload) => sum + upload.speed, 0) / Math.max(activeUploads.length, 1);
+  const averageSpeed = uploads
+    .filter((upload) => upload.status === 'uploading')
+    .reduce((sum, upload) => sum + upload.speed, 0);
 
   const estimatedTimeRemaining = averageSpeed > 0 ? (totalSize - totalUploaded) / averageSpeed : 0;
 

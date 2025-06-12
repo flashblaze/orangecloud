@@ -43,9 +43,9 @@ export interface UploadProgress {
 }
 
 export const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
-export const MOBILE_CHUNK_SIZE = 3 * 1024 * 1024; // 3MB chunks for mobile (reduced for stability)
+export const MOBILE_CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks for mobile (even smaller for stability)
 export const MULTIPART_THRESHOLD = 100 * 1024 * 1024; // 100MB threshold
-export const MOBILE_MULTIPART_THRESHOLD = 5 * 1024 * 1024; // 5MB threshold for mobile (use multipart for better reliability)
+export const MOBILE_MULTIPART_THRESHOLD = 3 * 1024 * 1024; // 3MB threshold for mobile (even lower)
 
 // Enhanced mobile detection with tablet support
 const isMobile = (): boolean => {
@@ -238,7 +238,8 @@ export const simpleUpload = async ({
 
   // Use fetch API for better mobile compatibility
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), mobile ? 300000 : 120000); // 5 min mobile, 2 min desktop
+  const timeoutMs = mobile ? 600000 : 120000; // 10 min mobile, 2 min desktop
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   if (signal) {
     signal.addEventListener('abort', () => controller.abort());
@@ -371,16 +372,19 @@ export const multipartUpload = async ({
     const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
     let uploadedBytes = 0;
 
-    const uploadPart = async (partNumber: number, partUrl: string, retries = 3): Promise<void> => {
+    const uploadPart = async (partNumber: number, partUrl: string, retries = 5): Promise<void> => {
       const start = (partNumber - 1) * chunkSize;
       const end = Math.min(start + chunkSize, file.size);
       const partData = file.slice(start, end);
+      const mobile = isMobile();
 
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
           // Use fetch API for better mobile compatibility
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+          // Longer timeout for mobile, shorter for desktop
+          const timeoutMs = mobile ? 600000 : 300000; // 10 min mobile, 5 min desktop
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
           if (signal) {
             signal.addEventListener('abort', () => controller.abort());
@@ -434,9 +438,12 @@ export const multipartUpload = async ({
             throw error; // Last attempt failed
           }
 
-          // Shorter retry delay for mobile
-          const delay = Math.min(500 * 2 ** (attempt - 1), 2000);
-          console.log(`Retrying part ${partNumber} in ${delay}ms...`);
+          // Much more aggressive retry delays for mobile
+          const baseDelay = mobile ? 2000 : 500; // Start with 2s for mobile, 500ms for desktop
+          const delay = Math.min(baseDelay * 2 ** (attempt - 1), mobile ? 15000 : 5000); // Max 15s mobile, 5s desktop
+          console.log(
+            `Retrying part ${partNumber} in ${delay}ms... (attempt ${attempt}/${retries})`
+          );
           await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
