@@ -203,14 +203,14 @@ export const simpleUpload = async ({
   const startTime = Date.now();
   const mobile = isMobile();
 
-  console.info(`[${fileName}] Starting simple upload`, {
-    device: mobile ? 'mobile' : 'desktop',
+  console.log(`[${fileName}] Starting simple upload on ${mobile ? 'mobile' : 'desktop'} device`, {
     fileSize: file.size,
-    fileType: file.type || 'unknown',
-    connection: (typeof navigator !== 'undefined' && (navigator as any).connection) || null,
   });
 
   // Get presigned URL
+  const uploadBody: Record<string, any> = { fileName, fileSize: file.size };
+  if (file.type) uploadBody.contentType = file.type;
+
   const { data } = await fetchWithRetry(
     `${apiUrl}/buckets/${bucketName}/upload-url?prefix=${encodeURIComponent(prefix)}`,
     {
@@ -218,11 +218,7 @@ export const simpleUpload = async ({
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        fileName,
-        fileSize: file.size,
-        contentType: file.type,
-      }),
+      body: JSON.stringify(uploadBody),
       signal,
     }
   );
@@ -254,23 +250,15 @@ export const simpleUpload = async ({
       }, 200)
     : null;
 
+  const putHeaders: HeadersInit = {};
+  if (file.type) putHeaders['Content-Type'] = file.type;
+
   try {
     await fetchWithRetry(
       uploadUrl,
-      {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': file.type,
-        },
-        signal: controller.signal,
-      },
-      // Don't parse response as JSON for this request
+      { method: 'PUT', body: file, headers: putHeaders, signal: controller.signal },
       false
     );
-
-    clearTimeout(timeoutId);
-    if (progressInterval) clearInterval(progressInterval);
 
     // Final progress update
     if (onProgress) {
@@ -280,15 +268,15 @@ export const simpleUpload = async ({
 
     console.log(`[${fileName}] Simple upload completed successfully`);
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (progressInterval) clearInterval(progressInterval);
-
     if (error.name === 'AbortError') {
       console.error(`[${fileName}] Simple upload aborted`, { signalAborted: signal?.aborted });
       throw new Error(signal?.aborted ? 'Upload cancelled' : 'Upload timeout');
     }
     console.error(`[${fileName}] Simple upload failed`, error);
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (progressInterval) clearInterval(progressInterval);
   }
 };
 
@@ -320,15 +308,12 @@ export const multipartUpload = async ({
   let fileKey: string | undefined;
 
   const connectionQuality = getConnectionQuality();
-  console.info(`[${fileName}] Starting multipart upload`, {
-    device: isMobile() ? 'mobile' : 'desktop',
+  console.log(`[${fileName}] Starting multipart upload on ${isMobile() ? 'mobile' : 'desktop'}`, {
     fileSize: file.size,
-    fileType: file.type || 'unknown',
     chunkSize,
     partCount,
     concurrency,
     connectionQuality,
-    connection: (typeof navigator !== 'undefined' && (navigator as any).connection) || null,
   });
 
   try {
@@ -584,10 +569,6 @@ const fetchWithRetry = async (
       return; // Success, no JSON parsing needed
     } catch (error: any) {
       lastError = error;
-
-      // Detailed log for this failed attempt
-      logNetworkError(attempt, url, options, error);
-
       if (options.signal?.aborted || error.name === 'AbortError') {
         throw lastError; // Don't retry on abort
       }
@@ -599,22 +580,12 @@ const fetchWithRetry = async (
       // Exponential backoff with jitter
       const baseDelay = isMobile() ? 2000 : 1000;
       const delay = Math.min(baseDelay * 2 ** (attempt - 1) + Math.random() * 1000, 30000);
-      console.warn(`Retrying in ${Math.round(delay)}ms...`);
+      console.warn(`Attempt ${attempt} failed. Retrying in ${Math.round(delay)}ms...`, {
+        url,
+        error: error.message,
+      });
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
   throw lastError;
-};
-
-// Add a helper to log failed network attempts with rich contextual data
-const logNetworkError = (attempt: number, url: string, options: RequestInit, error: any) => {
-  console.warn('[upload][network] fetch attempt failed', {
-    attempt,
-    method: options.method || 'GET',
-    url,
-    headers: options.headers,
-    aborted: options.signal?.aborted,
-    errorName: error?.name,
-    errorMessage: error?.message,
-  });
 };

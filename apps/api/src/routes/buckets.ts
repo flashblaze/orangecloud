@@ -626,22 +626,14 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
 
       try {
-        // Log whether we are including Content-Type in the signature so we can debug mobile vs desktop mismatch issues
-        console.log('[sign] generating upload URL', {
-          bucket: name,
-          fileName,
-          fileSize,
-          contentTypeIncluded: Boolean(contentType),
-        });
+        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}`;
+        const urlObj = new URL(url);
+        urlObj.searchParams.set('X-Amz-Expires', '7200'); // 2 hours expiry
 
         const headers: Record<string, string> = {};
         if (contentType) {
           headers['Content-Type'] = contentType;
         }
-
-        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}`;
-        const urlObj = new URL(url);
-        urlObj.searchParams.set('X-Amz-Expires', '7200'); // 2 hours expiry
 
         const request = new Request(urlObj.toString(), {
           method: 'PUT',
@@ -710,14 +702,6 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
 
       try {
-        console.log('[sign] initialize multipart upload', {
-          bucket: name,
-          fileName,
-          fileSize,
-          partCount,
-          contentTypeIncluded: Boolean(contentType),
-        });
-
         const uploadId = await initializeMultipartUpload(
           aws,
           c.env.CLOUDFLARE_ACCOUNT_ID,
