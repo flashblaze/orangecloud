@@ -203,13 +203,12 @@ export const simpleUpload = async ({
   const startTime = Date.now();
   const mobile = isMobile();
 
-  console.log(`Starting simple upload on ${mobile ? 'mobile' : 'desktop'} device:`, {
-    fileName,
+  console.log(`[${fileName}] Starting simple upload on ${mobile ? 'mobile' : 'desktop'} device`, {
     fileSize: file.size,
   });
 
   // Get presigned URL
-  const urlResponse = await fetch(
+  const { data } = await fetchWithRetry(
     `${apiUrl}/buckets/${bucketName}/upload-url?prefix=${encodeURIComponent(prefix)}`,
     {
       method: 'POST',
@@ -224,21 +223,14 @@ export const simpleUpload = async ({
       signal,
     }
   );
+  const { uploadUrl } = data as UploadSimpleFileResponse;
 
-  if (!urlResponse.ok) {
-    const error = await urlResponse.json().catch(() => ({ message: 'Failed to get upload URL' }));
-    // @ts-expect-error
-    throw new Error(error.message || 'Failed to get upload URL');
-  }
-
-  const { data } = (await urlResponse.json()) as { data: UploadSimpleFileResponse };
-  const { uploadUrl } = data;
-
-  console.log('Generated presigned URL for simple upload');
+  console.log(`[${fileName}] Generated presigned URL for simple upload`);
 
   // Use fetch API for better mobile compatibility
   const controller = new AbortController();
-  const timeoutMs = mobile ? 600000 : 120000; // 10 min mobile, 2 min desktop
+  // 15 min mobile, 5 min desktop
+  const timeoutMs = mobile ? 900000 : 300000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   if (signal) {
@@ -260,21 +252,22 @@ export const simpleUpload = async ({
     : null;
 
   try {
-    const response = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type,
+    await fetchWithRetry(
+      uploadUrl,
+      {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+        signal: controller.signal,
       },
-      signal: controller.signal,
-    });
+      // Don't parse response as JSON for this request
+      false
+    );
 
     clearTimeout(timeoutId);
     if (progressInterval) clearInterval(progressInterval);
-
-    if (!response.ok) {
-      throw new Error(`Upload failed with status ${response.status}`);
-    }
 
     // Final progress update
     if (onProgress) {
@@ -282,14 +275,16 @@ export const simpleUpload = async ({
       onProgress(progress);
     }
 
-    console.log('Simple upload completed successfully');
+    console.log(`[${fileName}] Simple upload completed successfully`);
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (progressInterval) clearInterval(progressInterval);
 
     if (error.name === 'AbortError') {
+      console.error(`[${fileName}] Simple upload aborted`, { signalAborted: signal?.aborted });
       throw new Error(signal?.aborted ? 'Upload cancelled' : 'Upload timeout');
     }
+    console.error(`[${fileName}] Simple upload failed`, error);
     throw error;
   }
 };
@@ -322,8 +317,7 @@ export const multipartUpload = async ({
   let fileKey: string | undefined;
 
   const connectionQuality = getConnectionQuality();
-  console.log(`Starting multipart upload on ${isMobile() ? 'mobile' : 'desktop'} device:`, {
-    fileName,
+  console.log(`[${fileName}] Starting multipart upload on ${isMobile() ? 'mobile' : 'desktop'}`, {
     fileSize: file.size,
     chunkSize,
     partCount,
@@ -333,7 +327,7 @@ export const multipartUpload = async ({
 
   try {
     // Initialize multipart upload
-    const initResponse = await fetch(
+    const { data: initData } = await fetchWithRetry(
       `${apiUrl}/buckets/${bucketName}/multipart-upload?prefix=${encodeURIComponent(prefix)}`,
       {
         method: 'POST',
@@ -350,18 +344,15 @@ export const multipartUpload = async ({
       }
     );
 
-    if (!initResponse.ok) {
-      const error = await initResponse
-        .json()
-        .catch(() => ({ message: 'Failed to initialize multipart upload' }));
-      // @ts-expect-error
-      throw new Error(error.message || 'Failed to initialize multipart upload');
-    }
+    const {
+      uploadId: newUploadId,
+      fileKey: newFileKey,
+      partUrls,
+    } = initData as UploadMultipartFileResponse;
+    uploadId = newUploadId;
+    fileKey = newFileKey;
 
-    const { data } = (await initResponse.json()) as { data: UploadMultipartFileResponse };
-    uploadId = data.uploadId;
-    fileKey = data.fileKey;
-    const { partUrls } = data;
+    console.log(`[${fileName}] Initialized multipart upload with ID: ${uploadId}`);
 
     // Notify parent about uploadId and fileKey for cancellation
     if (uploadId && fileKey) {
@@ -372,80 +363,67 @@ export const multipartUpload = async ({
     const uploadedParts: Array<{ partNumber: number; etag: string }> = [];
     let uploadedBytes = 0;
 
-    const uploadPart = async (partNumber: number, partUrl: string, retries = 5): Promise<void> => {
+    const uploadPart = async (partNumber: number, partUrl: string): Promise<void> => {
       const start = (partNumber - 1) * chunkSize;
       const end = Math.min(start + chunkSize, file.size);
       const partData = file.slice(start, end);
-      const mobile = isMobile();
 
-      for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-          // Use fetch API for better mobile compatibility
-          const controller = new AbortController();
-          // Longer timeout for mobile, shorter for desktop
-          const timeoutMs = mobile ? 600000 : 300000; // 10 min mobile, 5 min desktop
-          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      const controller = new AbortController();
+      // 15 min mobile, 5 min desktop per part
+      const timeoutMs = isMobile() ? 900000 : 300000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-          if (signal) {
-            signal.addEventListener('abort', () => controller.abort());
-          }
+      if (signal) {
+        signal.addEventListener('abort', () => controller.abort());
+      }
 
-          // Track progress manually
-          let lastProgress = 0;
-          const progressInterval = setInterval(() => {
-            if (onProgress && lastProgress < partData.size) {
-              // Estimate progress based on time (fallback when fetch doesn't provide progress)
-              const estimatedProgress = Math.min(lastProgress + partData.size * 0.1, partData.size);
-              const totalUploaded = uploadedBytes + estimatedProgress;
-              const progress = calculateProgress(startTime, totalUploaded, file.size);
-              onProgress(progress);
-              lastProgress = estimatedProgress;
-            }
-          }, 500);
+      // Track progress manually
+      let lastProgress = 0;
+      const progressInterval = setInterval(() => {
+        if (onProgress && lastProgress < partData.size) {
+          // Estimate progress based on time
+          const estimatedProgress = Math.min(lastProgress + partData.size * 0.1, partData.size);
+          const totalUploaded = uploadedBytes + estimatedProgress;
+          const progress = calculateProgress(startTime, totalUploaded, file.size);
+          onProgress(progress);
+          lastProgress = estimatedProgress;
+        }
+      }, 500);
 
-          const response = await fetch(partUrl, {
+      try {
+        await fetchWithRetry(
+          partUrl,
+          {
             method: 'PUT',
             body: partData,
             signal: controller.signal,
-          });
+          },
+          false, // Don't parse response as JSON
+          3, // Retry count for parts
+          (response) => {
+            const etag = response.headers.get('ETag');
+            if (etag) {
+              uploadedParts.push({ partNumber, etag: etag.replace(/"/g, '') });
+              uploadedBytes += partData.size;
 
-          clearTimeout(timeoutId);
-          clearInterval(progressInterval);
-
-          if (!response.ok) {
-            throw new Error(`Part ${partNumber} upload failed with status ${response.status}`);
-          }
-
-          const etag = response.headers.get('ETag');
-          if (etag) {
-            uploadedParts.push({ partNumber, etag: etag.replace(/"/g, '') });
-            uploadedBytes += partData.size;
-
-            // Final progress update for this part
-            if (onProgress) {
-              const progress = calculateProgress(startTime, uploadedBytes, file.size);
-              onProgress(progress);
+              // Final progress update for this part
+              if (onProgress) {
+                const progress = calculateProgress(startTime, uploadedBytes, file.size);
+                onProgress(progress);
+              }
+              console.log(`[${fileName}] Part ${partNumber} uploaded successfully`);
+            } else {
+              // This case should be handled by fetchWithRetry throwing an error, but as a safeguard:
+              throw new Error(`Part ${partNumber} upload failed: ETag missing`);
             }
           }
-
-          // Success - break retry loop
-          console.log(`Part ${partNumber} uploaded successfully`);
-          break;
-        } catch (error: any) {
-          console.warn(`Part ${partNumber} attempt ${attempt} failed:`, error);
-
-          if (attempt === retries) {
-            throw error; // Last attempt failed
-          }
-
-          // Much more aggressive retry delays for mobile
-          const baseDelay = mobile ? 2000 : 500; // Start with 2s for mobile, 500ms for desktop
-          const delay = Math.min(baseDelay * 2 ** (attempt - 1), mobile ? 15000 : 5000); // Max 15s mobile, 5s desktop
-          console.log(
-            `Retrying part ${partNumber} in ${delay}ms... (attempt ${attempt}/${retries})`
-          );
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
+        );
+      } catch (error: any) {
+        console.warn(`[${fileName}] Part ${partNumber} failed after retries:`, error);
+        throw error; // Propagate error to fail the upload
+      } finally {
+        clearTimeout(timeoutId);
+        clearInterval(progressInterval);
       }
     };
 
@@ -461,7 +439,7 @@ export const multipartUpload = async ({
     }
 
     // Complete multipart upload
-    const completeResponse = await fetch(`${apiUrl}/buckets/${bucketName}/complete-multipart`, {
+    await fetchWithRetry(`${apiUrl}/buckets/${bucketName}/complete-multipart`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -474,31 +452,37 @@ export const multipartUpload = async ({
       signal,
     });
 
-    if (!completeResponse.ok) {
-      const error = await completeResponse
-        .json()
-        .catch(() => ({ message: 'Failed to complete multipart upload' }));
-      // @ts-expect-error
-      throw new Error(error.message || 'Failed to complete multipart upload');
-    }
-  } catch (error) {
+    console.log(`[${fileName}] Completed multipart upload successfully`);
+  } catch (error: any) {
+    console.error(`[${fileName}] Multipart upload failed.`, error);
+
     // If we have uploadId and fileKey, and the error is due to cancellation, abort the multipart upload
-    if (uploadId && fileKey && signal?.aborted) {
+    if (uploadId && fileKey && (signal?.aborted || error.name === 'AbortError')) {
       try {
-        await fetch(`${apiUrl}/buckets/${bucketName}/abort-multipart`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        console.log(`[${fileName}] Aborting multipart upload ${uploadId}`);
+        await fetchWithRetry(
+          `${apiUrl}/buckets/${bucketName}/abort-multipart`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              uploadId,
+              fileKey,
+            }),
           },
-          body: JSON.stringify({
-            uploadId,
-            fileKey,
-          }),
-        });
-        console.log(`Aborted multipart upload ${uploadId} for ${fileKey}`);
+          true,
+          0 // No retries for abort
+        );
+        console.log(`[${fileName}] Aborted multipart upload ${uploadId} for ${fileKey}`);
       } catch (abortError) {
-        console.error('Failed to abort multipart upload:', abortError);
+        console.error(`[${fileName}] Failed to abort multipart upload:`, abortError);
       }
+    }
+
+    if (error.name === 'AbortError') {
+      throw new Error(signal?.aborted ? 'Upload cancelled' : 'Upload timeout');
     }
     throw error;
   }
@@ -524,8 +508,15 @@ export const uploadFile = async ({
   signal,
 }: UploadFileOptions): Promise<void> => {
   const fileName = file.name;
+  const useMultipart = shouldUseMultipart(file.size);
 
-  if (shouldUseMultipart(file.size)) {
+  console.log(
+    `[${fileName}] Starting upload. Size: ${formatFileSize(file.size)}. Using ${
+      useMultipart ? 'multipart' : 'simple'
+    } upload.`
+  );
+
+  if (useMultipart) {
     return multipartUpload({
       bucketName,
       fileName,
@@ -546,4 +537,64 @@ export const uploadFile = async ({
     onProgress,
     signal,
   });
+};
+
+const fetchWithRetry = async (
+  url: string,
+  options: RequestInit,
+  parseJson = true,
+  retries = 3,
+  onSuccess?: (response: Response) => void
+): Promise<any> => {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      if (options.signal?.aborted) {
+        throw new Error('Request aborted before attempting.');
+      }
+
+      const response = await fetch(url, options);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        let errorMessage = `Request failed with status ${response.status}`;
+        try {
+          const errorJson = JSON.parse(errorBody);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          errorMessage = `${errorMessage}: ${errorBody}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      if (onSuccess) {
+        onSuccess(response);
+      }
+
+      if (parseJson) {
+        return await response.json();
+      }
+      return; // Success, no JSON parsing needed
+    } catch (error: any) {
+      lastError = error;
+      if (options.signal?.aborted || error.name === 'AbortError') {
+        throw lastError; // Don't retry on abort
+      }
+
+      if (attempt === retries) {
+        break; // Don't wait after the last attempt
+      }
+
+      // Exponential backoff with jitter
+      const baseDelay = isMobile() ? 2000 : 1000;
+      const delay = Math.min(baseDelay * 2 ** (attempt - 1) + Math.random() * 1000, 30000);
+      console.warn(`Attempt ${attempt} failed. Retrying in ${Math.round(delay)}ms...`, {
+        url,
+        error: error.message,
+      });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
 };
