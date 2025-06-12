@@ -86,6 +86,7 @@ export default function UploadProgress({
                 <IconChevronUp className="h-4 w-4" />
               )
             }
+            className="w-full sm:w-auto"
             onClick={() => setIsExpanded(!isExpanded)}
           >
             {activeUploads.length > 0
@@ -95,18 +96,22 @@ export default function UploadProgress({
                 : `${errorUploads.length} upload${errorUploads.length === 1 ? '' : 's'} failed`}
           </Button>
 
-          {activeUploads.length > 0 && (
-            <span className="text-gray-600 text-sm dark:text-gray-300">
-              {formatFileSize(totalUploaded)} / {formatFileSize(totalSize)}
-              {averageSpeed > 0 && <> • {formatUploadSpeed(averageSpeed)}</>}
-              {estimatedTimeRemaining > 0 && <> • {formatTimeRemaining(estimatedTimeRemaining)}</>}
-            </span>
-          )}
+          <p className="w-full sm:w-auto">
+            {activeUploads.length > 0 && (
+              <span className="text-gray-600 text-sm dark:text-gray-300">
+                {formatFileSize(totalUploaded)} / {formatFileSize(totalSize)}
+                {averageSpeed > 0 && <> • {formatUploadSpeed(averageSpeed)}</>}
+                {estimatedTimeRemaining > 0 && (
+                  <> • {formatTimeRemaining(estimatedTimeRemaining)}</>
+                )}
+              </span>
+            )}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
           {activeUploads.length > 0 && (
-            <Button color="red" size="xs" onClick={onCancelAll}>
+            <Button className="w-full" color="red" size="xs" onClick={onCancelAll}>
               Cancel All
             </Button>
           )}

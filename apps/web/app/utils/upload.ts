@@ -43,18 +43,24 @@ export interface UploadProgress {
 }
 
 export const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
-export const MOBILE_CHUNK_SIZE = 8 * 1024 * 1024; // 8MB chunks for mobile (increased from 5MB)
+export const MOBILE_CHUNK_SIZE = 3 * 1024 * 1024; // 3MB chunks for mobile (reduced for stability)
 export const MULTIPART_THRESHOLD = 100 * 1024 * 1024; // 100MB threshold
-export const MOBILE_MULTIPART_THRESHOLD = 20 * 1024 * 1024; // 20MB threshold for mobile (lower to use optimized path more often)
+export const MOBILE_MULTIPART_THRESHOLD = 5 * 1024 * 1024; // 5MB threshold for mobile (use multipart for better reliability)
 
-// Mobile detection utility
+// Enhanced mobile detection with tablet support
 const isMobile = (): boolean => {
   if (typeof window === 'undefined') return false;
 
   const userAgent = window.navigator.userAgent;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i.test(
-    userAgent
-  );
+  const mobileRegex =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile|CriOS/i;
+  const isMobileUA = mobileRegex.test(userAgent);
+
+  // Also check for touch support and screen size
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isSmallScreen = window.innerWidth <= 768;
+
+  return isMobileUA || (hasTouch && isSmallScreen);
 };
 
 // Connection quality detection
@@ -87,18 +93,13 @@ const getConnectionQuality = (): 'fast' | 'medium' | 'slow' => {
 // Get optimal settings based on device and connection
 const getOptimalSettings = () => {
   const mobile = isMobile();
-  const quality = getConnectionQuality();
 
   if (mobile) {
-    // Mobile browsers have stricter limitations regardless of connection speed
-    switch (quality) {
-      case 'fast':
-        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 2 }; // More conservative for mobile browsers
-      case 'medium':
-        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 1 };
-      case 'slow':
-        return { chunkSize: MOBILE_CHUNK_SIZE, concurrency: 1 };
-    }
+    // Mobile browsers need very conservative settings
+    return {
+      chunkSize: MOBILE_CHUNK_SIZE,
+      concurrency: 1, // Always sequential on mobile
+    };
   }
 
   // Desktop settings
@@ -201,12 +202,10 @@ export const simpleUpload = async ({
 }: SimpleUploadOptions): Promise<void> => {
   const startTime = Date.now();
   const mobile = isMobile();
-  const connectionQuality = getConnectionQuality();
 
   console.log(`Starting simple upload on ${mobile ? 'mobile' : 'desktop'} device:`, {
     fileName,
     fileSize: file.size,
-    connectionQuality,
   });
 
   // Get presigned URL
@@ -237,60 +236,61 @@ export const simpleUpload = async ({
 
   console.log('Generated presigned URL for simple upload');
 
-  // Upload file with mobile-optimized settings
-  const xhr = new XMLHttpRequest();
+  // Use fetch API for better mobile compatibility
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), mobile ? 300000 : 120000); // 5 min mobile, 2 min desktop
 
-  return new Promise((resolve, reject) => {
-    // Set mobile-specific timeout
-    if (mobile) {
-      const timeout =
-        connectionQuality === 'fast' ? 120000 : connectionQuality === 'medium' ? 180000 : 300000; // 2-5 minutes
-      xhr.timeout = timeout;
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort());
+  }
+
+  // Track progress manually for mobile
+  let lastProgress = 0;
+  const progressInterval = mobile
+    ? setInterval(() => {
+        if (onProgress && lastProgress < file.size) {
+          // Estimate progress for mobile
+          const estimatedProgress = Math.min(lastProgress + file.size * 0.05, file.size);
+          const progress = calculateProgress(startTime, estimatedProgress, file.size);
+          onProgress(progress);
+          lastProgress = estimatedProgress;
+        }
+      }, 200)
+    : null;
+
+  try {
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    if (progressInterval) clearInterval(progressInterval);
+
+    if (!response.ok) {
+      throw new Error(`Upload failed with status ${response.status}`);
     }
 
-    if (signal) {
-      signal.addEventListener('abort', () => {
-        xhr.abort();
-        reject(new Error('Upload cancelled'));
-      });
+    // Final progress update
+    if (onProgress) {
+      const progress = calculateProgress(startTime, file.size, file.size);
+      onProgress(progress);
     }
 
-    xhr.upload.addEventListener('progress', (event) => {
-      if (event.lengthComputable && onProgress) {
-        const progress = calculateProgress(startTime, event.loaded, event.total);
-        onProgress(progress);
-      }
-    });
+    console.log('Simple upload completed successfully');
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (progressInterval) clearInterval(progressInterval);
 
-    xhr.addEventListener('load', () => {
-      console.log('Simple upload completed with status:', xhr.status);
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        console.error('Simple upload failed with status:', xhr.status, xhr.statusText);
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    });
-
-    xhr.addEventListener('error', (event) => {
-      console.error('Network error during simple upload:', event);
-      reject(new Error('Network error during upload'));
-    });
-
-    xhr.addEventListener('timeout', () => {
-      console.error('Timeout during simple upload');
-      reject(new Error('Upload timeout'));
-    });
-
-    xhr.addEventListener('abort', () => {
-      reject(new Error('Upload cancelled'));
-    });
-
-    console.log('Starting simple upload XMLHttpRequest');
-    xhr.open('PUT', uploadUrl);
-    xhr.setRequestHeader('Content-Type', file.type);
-    xhr.send(file);
-  });
+    if (error.name === 'AbortError') {
+      throw new Error(signal?.aborted ? 'Upload cancelled' : 'Upload timeout');
+    }
+    throw error;
+  }
 };
 
 export interface MultipartUploadOptions {
@@ -378,78 +378,64 @@ export const multipartUpload = async ({
 
       for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
+          // Use fetch API for better mobile compatibility
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
 
-            // Set timeout based on connection quality and part size
-            const baseTimeout =
-              connectionQuality === 'fast'
-                ? 60000
-                : connectionQuality === 'medium'
-                  ? 90000
-                  : 120000;
-            // Add extra time for larger parts
-            const sizeMultiplier = Math.max(1, partData.size / (5 * 1024 * 1024)); // Base on 5MB
-            xhr.timeout = Math.min(baseTimeout * sizeMultiplier, 300000); // Max 5 minutes
+          if (signal) {
+            signal.addEventListener('abort', () => controller.abort());
+          }
 
-            if (signal) {
-              signal.addEventListener('abort', () => {
-                xhr.abort();
-                reject(new Error('Upload cancelled'));
-              });
+          // Track progress manually
+          let lastProgress = 0;
+          const progressInterval = setInterval(() => {
+            if (onProgress && lastProgress < partData.size) {
+              // Estimate progress based on time (fallback when fetch doesn't provide progress)
+              const estimatedProgress = Math.min(lastProgress + partData.size * 0.1, partData.size);
+              const totalUploaded = uploadedBytes + estimatedProgress;
+              const progress = calculateProgress(startTime, totalUploaded, file.size);
+              onProgress(progress);
+              lastProgress = estimatedProgress;
             }
+          }, 500);
 
-            xhr.upload.addEventListener('progress', (event) => {
-              if (event.lengthComputable && onProgress) {
-                const partProgress = event.loaded;
-                const totalUploaded = uploadedBytes + partProgress;
-                const progress = calculateProgress(startTime, totalUploaded, file.size);
-                onProgress(progress);
-              }
-            });
-
-            xhr.addEventListener('load', () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                const etag = xhr.getResponseHeader('ETag');
-                if (etag) {
-                  uploadedParts.push({ partNumber, etag: etag.replace(/"/g, '') });
-                  uploadedBytes += partData.size;
-                }
-                resolve();
-              } else {
-                reject(new Error(`Part ${partNumber} upload failed with status ${xhr.status}`));
-              }
-            });
-
-            xhr.addEventListener('error', () => {
-              reject(new Error(`Network error uploading part ${partNumber}`));
-            });
-
-            xhr.addEventListener('timeout', () => {
-              reject(new Error(`Timeout uploading part ${partNumber}`));
-            });
-
-            xhr.addEventListener('abort', () => {
-              reject(new Error('Upload cancelled'));
-            });
-
-            xhr.open('PUT', partUrl);
-            xhr.send(partData);
+          const response = await fetch(partUrl, {
+            method: 'PUT',
+            body: partData,
+            signal: controller.signal,
           });
+
+          clearTimeout(timeoutId);
+          clearInterval(progressInterval);
+
+          if (!response.ok) {
+            throw new Error(`Part ${partNumber} upload failed with status ${response.status}`);
+          }
+
+          const etag = response.headers.get('ETag');
+          if (etag) {
+            uploadedParts.push({ partNumber, etag: etag.replace(/"/g, '') });
+            uploadedBytes += partData.size;
+
+            // Final progress update for this part
+            if (onProgress) {
+              const progress = calculateProgress(startTime, uploadedBytes, file.size);
+              onProgress(progress);
+            }
+          }
 
           // Success - break retry loop
           console.log(`Part ${partNumber} uploaded successfully`);
           break;
-        } catch (error) {
+        } catch (error: any) {
           console.warn(`Part ${partNumber} attempt ${attempt} failed:`, error);
 
           if (attempt === retries) {
             throw error; // Last attempt failed
           }
 
-          // Progressive retry delay - shorter for small files
-          const baseDelay = file.size > 50 * 1024 * 1024 ? 1000 : 500; // 500ms for smaller files
-          const delay = Math.min(baseDelay * 2 ** (attempt - 1), 3000);
+          // Shorter retry delay for mobile
+          const delay = Math.min(500 * 2 ** (attempt - 1), 2000);
           console.log(`Retrying part ${partNumber} in ${delay}ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
         }

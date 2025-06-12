@@ -34,6 +34,16 @@ export const useFileUpload = ({
 
       // Process uploads one by one to avoid overwhelming the server
       for (const uploadFileObj of uploadFiles) {
+        // Skip if upload was cancelled while pending
+        if (uploadFileObj.abortController?.signal.aborted) {
+          updateUpload(uploadFileObj.id, {
+            status: 'cancelled',
+            speed: 0,
+            timeRemaining: 0,
+          });
+          continue;
+        }
+
         try {
           updateUpload(uploadFileObj.id, { status: 'uploading' });
 
@@ -75,7 +85,7 @@ export const useFileUpload = ({
               speed: 0,
               timeRemaining: 0,
             });
-            return; // Don't show any notification for user-initiated cancellations
+            continue; // Skip to next upload instead of exiting the entire function
           }
 
           const errorMessage = error instanceof Error ? error.message : 'Upload failed';
