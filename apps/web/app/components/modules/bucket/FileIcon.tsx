@@ -1,7 +1,6 @@
-import { cn } from '~/utils';
+import { cn, codeExtensions } from '~/utils';
 import IconCode from '~icons/solar/code-bold-duotone';
 import IconPdf from '~icons/solar/document-bold-duotone';
-import IconFileText from '~icons/solar/file-bold-duotone';
 import IconFolder from '~icons/solar/folder-bold-duotone';
 import IconPhoto from '~icons/solar/gallery-round-bold-duotone';
 import IconMusic from '~icons/solar/music-note-2-bold-duotone';
@@ -42,32 +41,8 @@ const FileIcon = ({ type, name, className = 'w-5 h-5' }: FileIconProps) => {
   }
 
   // Code files
-  if (
-    [
-      'js',
-      'ts',
-      'jsx',
-      'tsx',
-      'html',
-      'css',
-      'json',
-      'xml',
-      'py',
-      'java',
-      'cpp',
-      'c',
-      'php',
-      'rb',
-      'go',
-      'rs',
-    ].includes(extension)
-  ) {
+  if (codeExtensions.includes(extension)) {
     return <IconCode className={cn(className, 'text-indigo-500 dark:text-indigo-400')} />;
-  }
-
-  // Text files
-  if (['txt', 'md', 'doc', 'docx', 'rtf'].includes(extension)) {
-    return <IconFileText className={cn(className, 'text-gray-600 dark:text-gray-400')} />;
   }
 
   // Default file icon

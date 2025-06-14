@@ -5,7 +5,7 @@ import { Link } from 'react-router';
 
 import { useEnv } from '~/context/use-env';
 import useDeleteFile from '~/queries/buckets/useDeleteFile';
-import { formatFileSize, isPreviewableFile } from '~/utils';
+import { formatFileSize, getFileExtension, isPreviewableFile } from '~/utils';
 import IconDotsVertical from '~icons/solar/menu-dots-bold-duotone';
 import IconShare from '~icons/solar/share-bold-duotone';
 import IconTrash from '~icons/solar/trash-bin-trash-bold-duotone';
@@ -190,6 +190,7 @@ const FileItem = ({ item, bucketName, viewMode = 'list' }: FileItemProps) => {
           onClose={() => setPreviewModalOpened(false)}
           file={item}
           bucketName={bucketName}
+          fileExtension={getFileExtension(item.name)}
         />
         <ShareModal
           opened={shareModalOpened}

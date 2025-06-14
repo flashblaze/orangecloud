@@ -1,8 +1,10 @@
 import { Loader, Modal } from '@mantine/core';
 import { useEffect } from 'react';
+import ShikiHighlighter from 'react-shiki';
 
 import { useEnv } from '~/context/use-env';
 import useFileContent from '~/queries/buckets/useFileContent';
+import useTextFileContent from '~/queries/buckets/useTextFileContent';
 import { getPreviewType } from '~/utils';
 import IconSoundWave from '~icons/solar/soundwave-bold';
 import type { FileSystemItem } from './FileItem';
@@ -13,33 +15,52 @@ interface FilePreviewModalProps {
   onClose: () => void;
   file: FileSystemItem | null;
   bucketName: string;
+  fileExtension: string;
 }
 
-const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModalProps) => {
+const FilePreviewModal = ({
+  opened,
+  onClose,
+  file,
+  bucketName,
+  fileExtension,
+}: FilePreviewModalProps) => {
   const { apiUrl } = useEnv();
-
-  const fileContent = useFileContent({
-    bucketName,
-    fileKey: file?.key || '',
-    enabled: opened && !!file,
-    apiUrl,
-  });
-
-  // Clean up blob URL when modal closes or file changes
-  useEffect(() => {
-    return () => {
-      if (fileContent.data) {
-        URL.revokeObjectURL(fileContent.data);
-      }
-    };
-  }, [fileContent.data]);
 
   if (!file) return null;
 
   const previewType = getPreviewType(file.name);
 
+  // Use appropriate hook based on file type
+  const fileContent = useFileContent({
+    bucketName,
+    fileKey: file?.key || '',
+    enabled: opened && !!file && previewType !== 'code',
+    apiUrl,
+  });
+
+  const textFileContent = useTextFileContent({
+    bucketName,
+    fileKey: file?.key || '',
+    enabled: opened && !!file && previewType === 'code',
+    apiUrl,
+  });
+
+  // Clean up blob URL when modal closes or file changes (only for non-text files)
+  useEffect(() => {
+    return () => {
+      if (fileContent.data && previewType !== 'code') {
+        URL.revokeObjectURL(fileContent.data);
+      }
+    };
+  }, [fileContent.data, previewType]);
+
   const renderPreviewContent = () => {
-    if (fileContent.isLoading) {
+    const isLoading = previewType === 'code' ? textFileContent.isLoading : fileContent.isLoading;
+    const isError = previewType === 'code' ? textFileContent.isError : fileContent.isError;
+    const data = previewType === 'code' ? textFileContent.data : fileContent.data;
+
+    if (isLoading) {
       return (
         <div className="flex h-64 items-center justify-center">
           <Loader size="lg" />
@@ -47,7 +68,7 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
       );
     }
 
-    if (fileContent.isError || !fileContent.data) {
+    if (isError || !data) {
       return (
         <div className="flex h-64 items-center justify-center">
           <p className="text-red-500 dark:text-red-400">Failed to load file</p>
@@ -58,7 +79,7 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
     if (previewType === 'image') {
       return (
         <img
-          src={fileContent.data}
+          src={data as string}
           alt={file.name}
           className="max-h-[70vh] max-w-full object-contain"
         />
@@ -67,7 +88,7 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
 
     if (previewType === 'video') {
       return (
-        <video src={fileContent.data} controls className="max-h-[70vh] max-w-full">
+        <video src={data as string} controls className="max-h-[70vh] max-w-full">
           <track kind="captions" />
           Your browser does not support the video tag.
         </video>
@@ -79,7 +100,7 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
         <div className="flex w-full min-w-[400px] flex-col items-center gap-6">
           <IconSoundWave className="h-20 w-20 text-gray-400 dark:text-gray-500" />
           <audio
-            src={fileContent.data}
+            src={data as string}
             controls
             className="h-12 w-full min-w-[350px]"
             style={{ minHeight: '48px' }}
@@ -95,6 +116,19 @@ const FilePreviewModal = ({ opened, onClose, file, bucketName }: FilePreviewModa
       return (
         <div className="w-full max-w-4xl">
           <PdfViewer fileKey={file.key} bucketName={bucketName} apiUrl={apiUrl} />
+        </div>
+      );
+    }
+
+    if (previewType === 'code') {
+      return (
+        <div className="w-full max-w-4xl">
+          <ShikiHighlighter
+            language={fileExtension}
+            theme={{ light: 'github-light', dark: 'dark-plus' }}
+          >
+            {data as string}
+          </ShikiHighlighter>
         </div>
       );
     }

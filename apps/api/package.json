@@ -21,14 +21,14 @@
     "hono-rate-limiter": "^0.4.2",
     "nanoid": "^5.1.5",
     "react": "^19.1.0",
-    "zod": "^3.25.57"
+    "zod": "^3.25.64"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@cloudflare/workers-types": "^4.20250610.0",
-    "@types/node": "^22.15.29",
+    "@cloudflare/workers-types": "^4.20250613.0",
+    "@types/node": "22.14.0",
     "npm-check-updates": "^18.0.1",
     "typescript": "5.8.3",
-    "wrangler": "^4.19.1"
+    "wrangler": "^4.20.0"
   }
 }
