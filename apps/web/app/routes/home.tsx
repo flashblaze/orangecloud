@@ -1,12 +1,7 @@
-import { ActionIcon, Card } from '@mantine/core';
-import { useState } from 'react';
+import { Card } from '@mantine/core';
 import { Link } from 'react-router';
-
-import ThemeToggle from '~/components/ThemeToggle';
-import CreateBucketModal from '~/components/modules/bucket/CreateBucketModal';
 import { formatFileSize } from '~/utils';
 import { createClient } from '~/utils/client';
-import IconPlus from '~icons/solar/add-circle-bold-duotone';
 import IconDatabase from '~icons/solar/database-bold-duotone';
 import IconFlashDrive from '~icons/solar/flash-drive-bold-duotone';
 import IconTransfer from '~icons/solar/transfer-horizontal-bold-duotone';
@@ -44,7 +39,6 @@ export async function loader() {
 }
 
 const Home = ({ loaderData }: Route.ComponentProps) => {
-  const [createBucketModalOpened, setCreateBucketModalOpened] = useState(false);
   const metrics = loaderData.metrics;
 
   // Calculate total storage
@@ -56,71 +50,62 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
     : 0;
 
   return (
-    <section className="container mx-auto mt-10 px-8">
+    <section>
       <div className="space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <h1 className="mb-2 font-bold text-3xl text-gray-900 dark:text-gray-100">
-              OrangeCloud
-            </h1>
-            <p className="font-semibold text-gray-600 dark:text-gray-400">
-              Your R2 storage dashboard
-            </p>
-          </div>
-          <ThemeToggle />
-        </div>
-
         {/* Metrics Cards */}
         {metrics && (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Card padding="lg" className="hover:bg-card-background!">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/20">
-                  <IconFlashDrive className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-semibold text-gray-900 text-xl dark:text-gray-100">
+                Storage Usage
+              </h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Card padding="lg" className="hover:bg-card-background!">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-blue-100 p-3 dark:bg-blue-900/20">
+                    <IconFlashDrive className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-sm dark:text-gray-400">Total Storage</p>
+                    <p className="font-bold text-gray-900 text-xl dark:text-gray-100">
+                      {formatFileSize(totalStorage)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm dark:text-gray-400">Total Storage</p>
-                  <p className="font-bold text-gray-900 text-xl dark:text-gray-100">
-                    {formatFileSize(totalStorage)}
-                  </p>
-                </div>
-              </div>
-            </Card>
+              </Card>
 
-            <Card padding="lg" className="hover:bg-card-background!">
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-900/20">
-                  <IconTransfer className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <Card padding="lg" className="hover:bg-card-background!">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-lg bg-purple-100 p-3 dark:bg-purple-900/20">
+                    <IconTransfer className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-sm dark:text-gray-400">Standard Storage</p>
+                    <p className="font-bold text-gray-900 text-xl dark:text-gray-100">
+                      {formatFileSize(
+                        (metrics.standard?.published?.payloadSize || 0) +
+                          (metrics.standard?.uploaded?.payloadSize || 0)
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-500 text-sm dark:text-gray-400">Standard Storage</p>
-                  <p className="font-bold text-gray-900 text-xl dark:text-gray-100">
-                    {formatFileSize(
-                      (metrics.standard?.published?.payloadSize || 0) +
-                        (metrics.standard?.uploaded?.payloadSize || 0)
-                    )}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
+              </Card>
+            </div>
+          </>
         )}
 
         {/* Buckets Section */}
         <div>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-semibold text-gray-900 text-xl dark:text-gray-100">Your Buckets</h2>
-            <ActionIcon variant="filled" size="lg" onClick={() => setCreateBucketModalOpened(true)}>
-              <IconPlus className="h-5 w-5" />
-            </ActionIcon>
           </div>
 
           {loaderData.buckets && loaderData.buckets.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {loaderData.buckets.map((bucket) => (
-                <Link key={bucket.name} to={`/buckets/${bucket.name}`} className="no-underline">
-                  <Card className="border border-card-border">
+                <Link key={bucket.name} to={`/buckets/${bucket.name}`}>
+                  <Card className="h-full border border-card-border">
                     <div className="flex items-center gap-4">
                       <div className="rounded-lg bg-primary-100/20 p-3 dark:bg-primary-900/20">
                         <IconDatabase className="h-6 w-6 text-primary-500 dark:text-primary-400" />
@@ -160,11 +145,6 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
           )}
         </div>
       </div>
-
-      <CreateBucketModal
-        opened={createBucketModalOpened}
-        onClose={() => setCreateBucketModalOpened(false)}
-      />
     </section>
   );
 };

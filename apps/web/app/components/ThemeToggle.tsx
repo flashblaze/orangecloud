@@ -1,4 +1,4 @@
-import { ActionIcon, Menu, Tooltip, useMantineColorScheme } from '@mantine/core';
+import { ActionIcon, Menu, useMantineColorScheme } from '@mantine/core';
 import IconLaptop from '~icons/solar/laptop-bold-duotone';
 import IconMoon from '~icons/solar/moon-bold-duotone';
 import IconSun from '~icons/solar/sun-2-bold-duotone';
@@ -18,13 +18,17 @@ const ThemeToggle = () => {
   };
 
   return (
-    <Menu shadow="md" width={120}>
+    <Menu
+      shadow="md"
+      width={120}
+      offset={5}
+      withArrow
+      portalProps={typeof document !== 'undefined' ? { target: document.body } : undefined}
+    >
       <Menu.Target>
-        <Tooltip label="Toggle theme">
-          <ActionIcon variant="default" size="lg" aria-label="Toggle theme">
-            {getIcon()}
-          </ActionIcon>
-        </Tooltip>
+        <ActionIcon variant="default" size="lg" aria-label="Toggle theme">
+          {getIcon()}
+        </ActionIcon>
       </Menu.Target>
 
       <Menu.Dropdown>

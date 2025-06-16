@@ -37,6 +37,7 @@ import '@mantine/notifications/styles.layer.css';
 import '@mantine/nprogress/styles.layer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import ProtectedLayout from './components/layout/ProtectedLayout';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -135,7 +136,9 @@ export default function App() {
   const { env } = useLoaderData<typeof loader>();
   return (
     <EnvProvider env={env}>
-      <Outlet />
+      <ProtectedLayout>
+        <Outlet />
+      </ProtectedLayout>
     </EnvProvider>
   );
 }
