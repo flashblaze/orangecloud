@@ -1,4 +1,5 @@
-import { AppShell, Button } from '@mantine/core';
+import { AppShell, Burger, Button } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
@@ -92,28 +93,38 @@ const NavLink = ({ item, onNavigate, className }: NavLinkProps) => {
 
 const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
   const [createBucketModalOpened, setCreateBucketModalOpened] = useState(false);
+  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
 
   //   const links = navLinks.map((item) => <NavLink key={item.label} item={item} onNavigate={close} />);
 
   return (
     <AppShell
       header={{ height: 60 }}
-      navbar={{ width: 200, breakpoint: 'md', collapsed: { mobile: false } }}
+      navbar={{
+        width: 200,
+        breakpoint: 'md',
+        collapsed: { mobile: !mobileOpened },
+      }}
       padding="md"
       classNames={{
-        main: 'bg-white min-h-screen dark:bg-zinc-800 border rounded-md',
+        main: 'bg-white min-h-screen dark:bg-zinc-800',
         navbar: 'bg-gray-50 dark:bg-zinc-900 border-r-0',
         header: 'bg-gray-50 dark:bg-zinc-900 border-b-0',
       }}
     >
       <AppShell.Header p="md">
         <div className="flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="OrangeCloud logo" className="h-10 w-10" />
-            <div className="flex flex-col overflow-hidden">
-              <span className="font-medium text-gray-700 text-lg dark:text-white">OrangeCloud</span>
-            </div>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="md" size="sm" />
+            <Link to="/" className="flex items-center gap-2">
+              <img src="/logo.svg" alt="OrangeCloud logo" className="h-10 w-10" />
+              <div className="flex flex-col overflow-hidden">
+                <span className="font-medium text-gray-700 text-lg dark:text-white">
+                  OrangeCloud
+                </span>
+              </div>
+            </Link>
+          </div>
           <div>
             <ThemeToggle />
           </div>
@@ -139,7 +150,7 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
               icon: <IconSolarHome className="text-base" />,
               iconActive: <IconSolarHomeBold className="text-base" />,
             }}
-            // onNavigate={close}
+            onNavigate={toggleMobile}
             className="mt-4"
           />
         </AppShell.Section>
