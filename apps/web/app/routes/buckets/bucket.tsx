@@ -1,8 +1,7 @@
-import { ActionIcon, Card, Menu, Tooltip } from '@mantine/core';
+import { ActionIcon, Card, Menu, SegmentedControl, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { useRef, useState } from 'react';
 import {
-  Link,
   type ShouldRevalidateFunctionArgs,
   redirect,
   useLoaderData,
@@ -10,7 +9,6 @@ import {
 } from 'react-router';
 
 import Breadcrumb from '~/components/Breadcrumb';
-import ThemeToggle from '~/components/ThemeToggle';
 import CreateFolderModal from '~/components/modules/bucket/CreateFolderModal';
 import FileItem from '~/components/modules/bucket/FileItem';
 import UploadProgress from '~/components/modules/bucket/UploadProgress';
@@ -20,7 +18,6 @@ import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { cn } from '~/utils';
 import { createClient } from '~/utils/client';
 import IconPlus from '~icons/solar/add-circle-bold-duotone';
-import IconArrowLeft from '~icons/solar/arrow-left-bold-duotone';
 import IconChecklist from '~icons/solar/checklist-bold-duotone';
 import IconFile from '~icons/solar/file-bold-duotone';
 import IconFolder from '~icons/solar/folder-bold-duotone';
@@ -160,81 +157,73 @@ const Bucket = () => {
 
   return (
     <>
-      <section className="container mx-auto mt-10 px-8">
-        <div className="space-y-10">
-          {/* Header with Back Button */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/" className="no-underline">
-                <Tooltip label="Back to buckets">
-                  <ActionIcon size="lg" variant="default">
-                    <IconArrowLeft className="h-5 w-5" />
-                  </ActionIcon>
-                </Tooltip>
-              </Link>
-              <p className="font-bold text-2xl text-gray-900 dark:text-gray-100">{name}</p>
-            </div>
-
-            {/* View Toggle and Theme Toggle */}
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Tooltip label="List view">
-                <ActionIcon
-                  size="lg"
-                  variant={viewMode === 'list' ? 'filled' : 'default'}
-                  color={viewMode === 'list' ? 'primary' : 'gray'}
-                  onClick={() => setViewMode('list')}
-                >
-                  <IconChecklist className="h-5 w-5" />
-                </ActionIcon>
-              </Tooltip>
-              <Tooltip label="Grid view">
-                <ActionIcon
-                  size="lg"
-                  variant={viewMode === 'grid' ? 'filled' : 'default'}
-                  color={viewMode === 'grid' ? 'primary' : 'gray'}
-                  onClick={() => setViewMode('grid')}
-                >
-                  <IconGrid className="h-5 w-5" />
-                </ActionIcon>
-              </Tooltip>
-            </div>
-          </div>
-
+      <section>
+        <div className="gap-y-10">
           {/* Breadcrumb Navigation with Add Button */}
           <div className="flex items-center justify-between">
             <Breadcrumb bucketName={name} prefix={prefix} className="mb-4" />
-            <Menu shadow="md" width={200} position="bottom-end">
-              <Menu.Target>
-                <Tooltip label="Add files or folders">
-                  <ActionIcon size="lg" variant="filled">
-                    <IconPlus className="h-5 w-5" />
-                  </ActionIcon>
-                </Tooltip>
-              </Menu.Target>
+            <div className="flex items-center gap-2">
+              <Menu shadow="md" width={200} position="bottom-end">
+                <Menu.Target>
+                  <Tooltip label="Add files or folders">
+                    <ActionIcon size="md" variant="filled">
+                      <IconPlus className="h-5 w-5" />
+                    </ActionIcon>
+                  </Tooltip>
+                </Menu.Target>
 
-              <Menu.Dropdown>
-                <Menu.Label>Add to bucket</Menu.Label>
-                <Menu.Item
-                  leftSection={<IconFolder className="h-4 w-4" />}
-                  onClick={handleNewFolder}
-                >
-                  New folder
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconFile className="h-4 w-4" />}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  File upload
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconUpload className="h-4 w-4" />}
-                  onClick={() => folderInputRef.current?.click()}
-                >
-                  Folder upload
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+                <Menu.Dropdown>
+                  <Menu.Label>Add to bucket</Menu.Label>
+                  <Menu.Item
+                    leftSection={<IconFolder className="h-4 w-4" />}
+                    onClick={handleNewFolder}
+                  >
+                    New folder
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconFile className="h-4 w-4" />}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    File upload
+                  </Menu.Item>
+                  <Menu.Item
+                    leftSection={<IconUpload className="h-4 w-4" />}
+                    onClick={() => folderInputRef.current?.click()}
+                  >
+                    Folder upload
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+              <div className="ml-2 flex items-center gap-2">
+                <SegmentedControl
+                  value={viewMode}
+                  size="md"
+                  onChange={(value) => setViewMode(value as ViewMode)}
+                  data={[
+                    {
+                      value: 'list',
+                      label: (
+                        <Tooltip label="List view">
+                          <div className="flex items-center justify-center">
+                            <IconChecklist className="h-5 w-5" />
+                          </div>
+                        </Tooltip>
+                      ),
+                    },
+                    {
+                      value: 'grid',
+                      label: (
+                        <Tooltip label="Grid view">
+                          <div className="flex items-center justify-center">
+                            <IconGrid className="h-5 w-5" />
+                          </div>
+                        </Tooltip>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Content - Loading, Error, or Data */}
@@ -251,7 +240,7 @@ const Bucket = () => {
           ) : items.length > 0 ? (
             <div
               className={cn(
-                'grid grid-cols-1 gap-2',
+                'mt-5 grid grid-cols-1 gap-2',
                 viewMode === 'grid' &&
                   'grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
               )}

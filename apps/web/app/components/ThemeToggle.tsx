@@ -21,8 +21,8 @@ const ThemeToggle = () => {
     <Menu
       shadow="md"
       width={120}
+      position="bottom-end"
       offset={5}
-      withArrow
       portalProps={typeof document !== 'undefined' ? { target: document.body } : undefined}
     >
       <Menu.Target>
