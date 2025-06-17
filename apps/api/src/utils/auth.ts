@@ -17,8 +17,8 @@ const auth = (env: Env['Bindings']) =>
       },
     }),
     basePath: '/auth',
-    baseUrl: 'http://localhost:8787',
-    trustedOrigins: ['http://localhost:5173'],
+    baseUrl: env.BASE_URL,
+    trustedOrigins: env.ORIGIN_URLS.split(','),
     session: {
       cookieCache: {
         enabled: true,
@@ -26,7 +26,7 @@ const auth = (env: Env['Bindings']) =>
       },
     },
     advanced: {
-      cookieDomain: new URL('http://localhost:8787').hostname,
+      cookieDomain: new URL(env.BASE_URL).hostname,
       useSecureCookies: env.ENVIRONMENT === 'production',
       sameSite: 'lax',
       cookiePrefix: 'orangecloud',

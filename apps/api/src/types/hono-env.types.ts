@@ -6,9 +6,8 @@ export type Env = {
     CLOUDFLARE_ACCOUNT_ID: string;
     CLOUDFLARE_R2_ACCESS_KEY: string;
     CLOUDFLARE_R2_SECRET_KEY: string;
-    VALID_ORIGIN_URLS: string;
+    ORIGIN_URLS: string;
     ORANGECLOUD_DB: D1Database;
-    BETTER_AUTH_SECRET: string;
-    BETTER_AUTH_URL: string;
+    BASE_URL: string;
   };
 };

@@ -10,7 +10,8 @@
   "vars": {
     "NODE_VERSION": "22.14.0",
     "ENVIRONMENT": "production",
-    "VALID_ORIGIN_URLS": "https://orangecloud.app,https://slice.orangecloud.app"
+    "ORIGIN_URLS": "https://orangecloud.app,https://slice.orangecloud.app",
+    "BASE_URL": "https://api.orangecloud.app"
   },
   "observability": {
     "enabled": true

@@ -6,6 +6,5 @@ CLOUDFLARE_R2_SECRET_KEY=
 # Valid: local, development, production. This does not have to be set in Cloudflare dashboard. This is added here to override the default value in wrangler.toml
 ENVIRONMENT=local
 
-# better-auth
-BETTER_AUTH_SECRET=
-BETTER_AUTH_URL=
+ORIGIN_URLS=http://localhost:5173
+BASE_URL=http://localhost:8787

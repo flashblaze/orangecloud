@@ -34,23 +34,13 @@ app.use(
     },
   }),
   (c, next) => {
-    const origin = c.env.VALID_ORIGIN_URLS.split(',');
-    if (c.env.ENVIRONMENT === 'local') {
-      origin.push('http://localhost:5173');
-    } else if (c.env.ENVIRONMENT === 'development') {
-      origin.push('https://dev.slice.orangecloud.app');
-    }
+    const origin = c.env.ORIGIN_URLS.split(',');
     return csrf({
       origin,
     })(c, next);
   },
   (c, next) => {
-    const origin = c.env.VALID_ORIGIN_URLS.split(',');
-    if (c.env.ENVIRONMENT === 'local') {
-      origin.push('http://localhost:5173');
-    } else if (c.env.ENVIRONMENT === 'development') {
-      origin.push('https://dev.slice.orangecloud.app');
-    }
+    const origin = c.env.ORIGIN_URLS.split(',');
     return cors({
       origin,
       credentials: true,
