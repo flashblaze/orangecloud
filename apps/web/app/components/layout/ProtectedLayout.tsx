@@ -1,44 +1,25 @@
-import { AppShell, Burger, Button } from '@mantine/core';
+import { AppShell, Avatar, Burger, Button, Menu, useMantineColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router';
-import IconSolarHomeBold from '~icons/solar/home-smile-angle-bold-duotone';
-import IconSolarHome from '~icons/solar/home-smile-angle-broken';
+import { Link, useLocation, useNavigate } from 'react-router';
 
-// import IconSolarPieChartBold from '~icons/solar/pie-chart-2-bold-duotone';
-// import IconSolarPieChart from '~icons/solar/pie-chart-2-broken';
-// import IconSolarBoltBold from '~icons/solar/bolt-bold-duotone';
-// import IconSolarBolt from '~icons/solar/bolt-broken';
+import { useEnv } from '~/context/env-context';
+import { useProtected } from '~/context/protected-context';
+import useLogout from '~/queries/auth/useLogout';
 import { cn } from '~/utils';
 import IconPlus from '~icons/solar/add-circle-bold-duotone';
-import ThemeToggle from '../ThemeToggle';
+import IconSolarHomeBold from '~icons/solar/home-smile-angle-bold-duotone';
+import IconSolarHome from '~icons/solar/home-smile-angle-broken';
+import IconLaptop from '~icons/solar/laptop-bold-duotone';
+import IconLogout from '~icons/solar/logout-3-bold-duotone';
+import IconMoon from '~icons/solar/moon-bold-duotone';
+import IconSun from '~icons/solar/sun-2-bold-duotone';
 import CreateBucketModal from '../modules/bucket/CreateBucketModal';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
 }
-
-// const navLinks = [
-//   {
-//     link: '/dashboard',
-//     label: 'Dashboard',
-//     icon: <IconSolarHome className="text-base" />,
-//     iconActive: <IconSolarHomeBold className="text-base" />,
-//   },
-//   {
-//     link: '/activities',
-//     label: 'Activities',
-//     icon: <IconSolarBolt className="text-base" />,
-//     iconActive: <IconSolarBoltBold className="text-base" />,
-//   },
-//   {
-//     link: '/reports',
-//     label: 'Reports',
-//     icon: <IconSolarPieChart className="text-base" />,
-//     iconActive: <IconSolarPieChartBold className="text-base" />,
-//   },
-// ];
 
 type NavLinkProps = {
   item: {
@@ -91,11 +72,88 @@ const NavLink = ({ item, onNavigate, className }: NavLinkProps) => {
   );
 };
 
+const UserMenu = () => {
+  const session = useProtected();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { apiUrl } = useEnv();
+  const logout = useLogout({ apiUrl });
+  const navigate = useNavigate();
+
+  const getThemeIcon = (theme: string) => {
+    switch (theme) {
+      case 'dark':
+        return <IconMoon width={16} height={16} />;
+      case 'light':
+        return <IconSun width={16} height={16} />;
+      default:
+        return <IconLaptop width={16} height={16} />;
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout.mutateAsync();
+    navigate('/auth/login', { replace: true });
+  };
+
+  return (
+    <Menu width={200} position="bottom-end" offset={5}>
+      <Menu.Target>
+        <Avatar
+          src={session.user.image}
+          alt={session.user.name}
+          size="md"
+          className="cursor-pointer"
+          color="primary"
+        >
+          {session.user.name.charAt(0).toUpperCase()}
+        </Avatar>
+      </Menu.Target>
+
+      <Menu.Dropdown>
+        <Menu.Sub>
+          <Menu.Sub.Target>
+            <Menu.Sub.Item leftSection={getThemeIcon(colorScheme)}>Theme</Menu.Sub.Item>
+          </Menu.Sub.Target>
+
+          <Menu.Sub.Dropdown>
+            <Menu.Item
+              leftSection={<IconSun width={16} height={16} />}
+              onClick={() => setColorScheme('light')}
+              data-active={colorScheme === 'light' || undefined}
+            >
+              Light
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconMoon width={16} height={16} />}
+              onClick={() => setColorScheme('dark')}
+              data-active={colorScheme === 'dark' || undefined}
+            >
+              Dark
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconLaptop width={16} height={16} />}
+              onClick={() => setColorScheme('auto')}
+              data-active={colorScheme === 'auto' || undefined}
+            >
+              System
+            </Menu.Item>
+          </Menu.Sub.Dropdown>
+        </Menu.Sub>
+        <Menu.Item
+          leftSection={<IconLogout width={16} height={16} />}
+          color="red"
+          onClick={handleLogout}
+        >
+          Logout
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  );
+};
+
 const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
   const [createBucketModalOpened, setCreateBucketModalOpened] = useState(false);
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure();
-
-  //   const links = navLinks.map((item) => <NavLink key={item.label} item={item} onNavigate={close} />);
 
   return (
     <AppShell
@@ -126,7 +184,7 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
             </Link>
           </div>
           <div>
-            <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
       </AppShell.Header>

@@ -10,7 +10,9 @@
   "vars": {
     "NODE_VERSION": "22.14.0",
     "ENVIRONMENT": "production",
-    "API_URL": "https://api.orangecloud.app"
+    "API_URL": "https://api.orangecloud.app",
+    "BASE_URL": "https://slice.orangecloud.app",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAABhTkXXswrDnMIFm"
   },
   "observability": {
     "enabled": true

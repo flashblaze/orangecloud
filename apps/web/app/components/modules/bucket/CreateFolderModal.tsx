@@ -3,7 +3,7 @@ import { Button, Group, Modal } from '@mantine/core';
 import { FormProvider, useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
 import ControlledTextInput from '~/components/form/ControlledTextInput';
-import { useEnv } from '~/context/use-env';
+import { useEnv } from '~/context/env-context';
 import useCreateFolder from '~/queries/buckets/useCreateFolder';
 import IconFolder from '~icons/solar/folder-bold-duotone';
 

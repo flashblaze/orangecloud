@@ -50,14 +50,18 @@ app.use(
 
 const routes = app
   .route('/buckets', bucketsRouter)
+  .all('/auth/*', (c) => auth(c.env).handler(c.req.raw))
+  .get('/session', async (c) => {
+    const session = await auth(c.env).api.getSession(c.req.raw);
+    return c.json(session);
+  })
   .get('/', async (c) => {
     const token = getCookie(c, getCookieName(c.env.ENVIRONMENT));
     return c.json({
       message: 'Hello!',
       token,
     });
-  })
-  .all('/auth/*', (c) => auth(c.env).handler(c.req.raw));
+  });
 
 export default routes;
 

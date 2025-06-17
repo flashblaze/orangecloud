@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { captcha } from 'better-auth/plugins';
 
 import db from '../db';
 import { account, session, user, verification } from '../db/schema';
@@ -37,6 +38,23 @@ const auth = (env: Env['Bindings']) =>
     },
     emailAndPassword: {
       enabled: true,
+    },
+    plugins: [
+      captcha({
+        provider: 'cloudflare-turnstile',
+        secretKey: env.TURNSTILE_SECRET_KEY,
+        endpoints: ['/sign-up/email'],
+      }),
+    ],
+    socialProviders: {
+      github: {
+        clientId: env.GITHUB_CLIENT_ID,
+        clientSecret: env.GITHUB_CLIENT_SECRET,
+      },
+      google: {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+      },
     },
   });
 
