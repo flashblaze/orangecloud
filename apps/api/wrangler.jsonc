@@ -30,5 +30,14 @@
         "simple": { "limit": 120, "period": 60 }
       }
     ]
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "ORANGECLOUD_DB",
+      "database_id": "71ab066d-57ad-496d-b9b1-2fa8214da0ec",
+      "database_name": "orangecloud",
+      "migrations_dir": "drizzle/migrations",
+      "migrations_table": "__drizzle_migrations"
+    }
+  ]
 }

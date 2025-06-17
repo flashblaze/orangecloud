@@ -7,6 +7,7 @@ import { csrf } from 'hono/csrf';
 import bucketsRouter from './routes/buckets';
 import type { Env } from './types/hono-env.types';
 import { getCookieName, getCookieOptions } from './utils';
+import auth from './utils/auth';
 
 const app = new Hono<Env>();
 
@@ -57,13 +58,16 @@ app.use(
   }
 );
 
-const routes = app.route('/buckets', bucketsRouter).get('/', async (c) => {
-  const token = getCookie(c, getCookieName(c.env.ENVIRONMENT));
-  return c.json({
-    message: 'Hello!',
-    token,
-  });
-});
+const routes = app
+  .route('/buckets', bucketsRouter)
+  .get('/', async (c) => {
+    const token = getCookie(c, getCookieName(c.env.ENVIRONMENT));
+    return c.json({
+      message: 'Hello!',
+      token,
+    });
+  })
+  .all('/auth/*', (c) => auth(c.env).handler(c.req.raw));
 
 export default routes;
 
