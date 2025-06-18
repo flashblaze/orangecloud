@@ -1,3 +1,5 @@
+import type auth from '../utils/auth';
+
 export type Env = {
   Bindings: {
     ENVIRONMENT: string;
@@ -15,5 +17,10 @@ export type Env = {
     GITHUB_CLIENT_SECRET: string;
     GOOGLE_CLIENT_ID: string;
     GOOGLE_CLIENT_SECRET: string;
+    BETTER_AUTH_SECRET: string;
+  };
+  Variables: {
+    user: ReturnType<typeof auth>['$Infer']['Session']['user'] | null;
+    session: ReturnType<typeof auth>['$Infer']['Session']['session'] | null;
   };
 };

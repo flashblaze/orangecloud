@@ -11,8 +11,8 @@ export function meta() {
   return [{ title: 'OrangeCloud' }, { name: 'description', content: 'Welcome to OrangeCloud!' }];
 }
 
-export async function loader() {
-  const client = createClient(undefined, true);
+export async function loader({ request }: Route.LoaderArgs) {
+  const client = createClient(request.headers, true);
 
   try {
     const [bucketsResponse, metricsResponse] = await Promise.all([

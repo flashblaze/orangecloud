@@ -3,9 +3,12 @@ CLOUDFLARE_ACCOUNT_ID=
 CLOUDFLARE_R2_ACCESS_KEY=
 CLOUDFLARE_R2_SECRET_KEY=
 
-# Valid: local, development, production. This does not have to be set in Cloudflare dashboard. This is added here to override the default value in wrangler.toml
+# Valid: local, production. No need to set up in Cloudflare dashboard. This is added here to override the default value in wrangler.jsonc
 ENVIRONMENT=local
 
+BETTER_AUTH_SECRET=
+
+# No need to set up in Cloudflare dashboard. This is added here to override the default value in wrangler.jsonc
 ORIGIN_URLS=http://localhost:5173
 BASE_URL=http://localhost:8787
 

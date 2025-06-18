@@ -4,6 +4,7 @@ import { deleteCookie, getCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { csrf } from 'hono/csrf';
 
+import sessionMiddleware from './middlewares/session';
 import bucketsRouter from './routes/buckets';
 import type { Env } from './types/hono-env.types';
 import { getCookieName, getCookieOptions } from './utils';
@@ -48,6 +49,8 @@ app.use(
   }
 );
 
+app.use('*', sessionMiddleware);
+
 const routes = app
   .route('/buckets', bucketsRouter)
   .all('/auth/*', (c) => auth(c.env).handler(c.req.raw))
@@ -56,10 +59,8 @@ const routes = app
     return c.json(session);
   })
   .get('/', async (c) => {
-    const token = getCookie(c, getCookieName(c.env.ENVIRONMENT));
     return c.json({
       message: 'Hello!',
-      token,
     });
   });
 

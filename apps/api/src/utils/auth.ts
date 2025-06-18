@@ -3,7 +3,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { captcha } from 'better-auth/plugins';
 
 import db from '../db';
-import { account, session, user, verification } from '../db/schema';
+import { accountTable, sessionTable, userTable, verificationTable } from '../db/schema';
 import type { Env } from '../types/hono-env.types';
 
 const auth = (env: Env['Bindings']) =>
@@ -11,12 +11,13 @@ const auth = (env: Env['Bindings']) =>
     database: drizzleAdapter(db(env), {
       provider: 'sqlite',
       schema: {
-        user,
-        session,
-        account,
-        verification,
+        user: userTable,
+        session: sessionTable,
+        account: accountTable,
+        verification: verificationTable,
       },
     }),
+    secret: env.BETTER_AUTH_SECRET,
     basePath: '/auth',
     baseUrl: env.BASE_URL,
     trustedOrigins: env.ORIGIN_URLS.split(','),

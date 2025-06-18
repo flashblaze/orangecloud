@@ -105,7 +105,7 @@ const UserMenu = () => {
           className="cursor-pointer"
           color="primary"
         >
-          {session.user.name.charAt(0).toUpperCase()}
+          {session.user.name.charAt(0).toUpperCase() || session.user.email.charAt(0).toUpperCase()}
         </Avatar>
       </Menu.Target>
 
@@ -170,23 +170,17 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
         header: 'bg-gray-50 dark:bg-zinc-900 border-b-0',
       }}
     >
-      <AppShell.Header p="md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="md" size="sm" />
-            <Link to="/" className="flex items-center gap-2">
-              <img src="/logo.svg" alt="OrangeCloud logo" className="h-10 w-10" />
-              <div className="flex flex-col overflow-hidden">
-                <span className="font-medium text-gray-700 text-lg dark:text-white">
-                  OrangeCloud
-                </span>
-              </div>
-            </Link>
-          </div>
-          <div>
-            <UserMenu />
-          </div>
+      <AppShell.Header p="md" className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Burger opened={mobileOpened} onClick={toggleMobile} hiddenFrom="md" size="sm" />
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/logo.svg" alt="OrangeCloud logo" className="h-10 w-10" />
+            <div className="flex flex-col overflow-hidden">
+              <span className="font-medium text-gray-700 text-lg dark:text-white">OrangeCloud</span>
+            </div>
+          </Link>
         </div>
+        <UserMenu />
       </AppShell.Header>
       <AppShell.Navbar p="md">
         <AppShell.Section grow>

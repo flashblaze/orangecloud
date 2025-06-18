@@ -4,6 +4,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { Hono } from 'hono';
 import { z } from 'zod/v4';
 
+import authMiddleware from '../middlewares/auth';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient } from '../utils';
 import {
@@ -58,6 +59,7 @@ const multipartUploadSchema = z.object({
 const bucketsRouter = new Hono<AuthHonoEnv>()
   .post(
     '/',
+    authMiddleware,
     zValidator('json', createBucketSchema, (result, c) => {
       if (!result.success) {
         return c.json(
@@ -110,7 +112,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       }
     }
   )
-  .get('/', async (c) => {
+  .get('/', authMiddleware, async (c) => {
     const cloudflare = new Cloudflare({
       apiToken: c.env.CLOUDFLARE_API_TOKEN,
     });
@@ -177,7 +179,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       message: 'Success',
     });
   })
-  .get('/metrics', async (c) => {
+  .get('/metrics', authMiddleware, async (c) => {
     const cloudflare = new Cloudflare({
       apiToken: c.env.CLOUDFLARE_API_TOKEN,
     });
@@ -202,7 +204,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       );
     }
   })
-  .get('/:name/exists', async (c) => {
+  .get('/:name/exists', authMiddleware, async (c) => {
     const { name } = c.req.param();
     const cloudflare = new Cloudflare({
       apiToken: c.env.CLOUDFLARE_API_TOKEN,
@@ -229,7 +231,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       message: 'Success',
     });
   })
-  .get('/:name', zValidator('query', contentByPrefixSchema), async (c) => {
+  .get('/:name', authMiddleware, zValidator('query', contentByPrefixSchema), async (c) => {
     const { name } = c.req.param();
     const prefix = c.req.query('prefix') || '';
 
@@ -323,6 +325,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get(
     '/:name/file/:key',
+    authMiddleware,
     zValidator('param', fileSchema, (result, c) => {
       if (!result.success) {
         return c.json(
@@ -380,6 +383,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   )
   .delete(
     '/:name/file/:key',
+    authMiddleware,
     zValidator(
       'param',
       z.object({
@@ -435,7 +439,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       }
     }
   )
-  .get('/:name/domains', async (c) => {
+  .get('/:name/domains', authMiddleware, async (c) => {
     const { name } = c.req.param();
 
     const cloudflare = new Cloudflare({
@@ -474,6 +478,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .post(
     '/:name/file/:key/presigned-url',
+    authMiddleware,
     zValidator(
       'json',
       z.object({
@@ -517,6 +522,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   )
   .post(
     '/:name/folder',
+    authMiddleware,
     zValidator('json', createFolderSchema, (result, c) => {
       if (!result.success) {
         return c.json(
@@ -595,6 +601,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   )
   .post(
     '/:name/upload-url',
+    authMiddleware,
     zValidator('json', generateUploadUrlSchema, (result, c) => {
       if (!result.success) {
         return c.json(
@@ -671,6 +678,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   )
   .post(
     '/:name/multipart-upload',
+    authMiddleware,
     zValidator('json', multipartUploadSchema, (result, c) => {
       if (!result.success) {
         return c.json(
@@ -746,6 +754,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   )
   .post(
     '/:name/complete-multipart',
+    authMiddleware,
     zValidator(
       'json',
       z.object({
@@ -809,6 +818,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   )
   .post(
     '/:name/abort-multipart',
+    authMiddleware,
     zValidator(
       'json',
       z.object({

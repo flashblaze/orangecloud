@@ -15,7 +15,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 }
 
 const AuthLayout = () => {
-  return <Outlet />;
+  return (
+    <main className="p-4 sm:p-0">
+      <Outlet />
+    </main>
+  );
 };
 
 export default AuthLayout;
