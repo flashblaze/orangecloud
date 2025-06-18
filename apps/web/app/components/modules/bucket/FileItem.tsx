@@ -3,7 +3,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router';
 
-import { useEnv } from '~/context/use-env';
+import { useEnv } from '~/context/env-context';
 import useDeleteFile from '~/queries/buckets/useDeleteFile';
 import { formatFileSize, getFileExtension, isPreviewableFile } from '~/utils';
 import IconDotsVertical from '~icons/solar/menu-dots-bold-duotone';

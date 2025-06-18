@@ -6,7 +6,7 @@ import { z } from 'zod/v4';
 
 import ControlledSelect from '~/components/form/ControlledSelect';
 import ControlledTextInput from '~/components/form/ControlledTextInput';
-import { useEnv } from '~/context/use-env';
+import { useEnv } from '~/context/env-context';
 import useCreateBucket from '~/queries/buckets/useCreateBucket';
 
 type CreateBucketModalProps = {

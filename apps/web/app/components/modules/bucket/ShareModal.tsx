@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { z } from 'zod/v4';
 import ControlledSelect from '~/components/form/ControlledSelect';
-import { useEnv } from '~/context/use-env';
+import { useEnv } from '~/context/env-context';
 import useBucketDomains from '~/queries/buckets/useBucketDomains';
 import useGeneratePresignedUrl from '~/queries/buckets/useGeneratePresignedUrl';
 

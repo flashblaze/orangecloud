@@ -3,6 +3,8 @@ import { createContext, useContext } from 'react';
 interface EnvContextType {
   apiUrl: string;
   environment: string;
+  baseUrl: string;
+  turnstileSiteKey: string;
 }
 
 const EnvContext = createContext<EnvContextType | null>(null);

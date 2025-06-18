@@ -19,7 +19,7 @@ import {
 import type { Route } from './+types/root';
 import NavigationProgress from './components/NavigationProgress';
 import { ThemeProvider } from './components/ThemeProvider';
-import { EnvProvider } from './context/use-env';
+import { EnvProvider } from './context/env-context';
 import { createCookieColorSchemeManager } from './utils/color-scheme-manager';
 import theme from './utils/theme';
 import {
@@ -37,7 +37,6 @@ import '@mantine/notifications/styles.layer.css';
 import '@mantine/nprogress/styles.layer.css';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import ProtectedLayout from './components/layout/ProtectedLayout';
 
 export const links: Route.LinksFunction = () => [
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -81,6 +80,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
     env: {
       apiUrl: context.cloudflare.env.API_URL,
       environment: context.cloudflare.env.ENVIRONMENT,
+      baseUrl: context.cloudflare.env.BASE_URL,
+      turnstileSiteKey: context.cloudflare.env.TURNSTILE_SITE_KEY,
     },
     theme: themePreference,
     resolvedTheme,
@@ -136,9 +137,7 @@ export default function App() {
   const { env } = useLoaderData<typeof loader>();
   return (
     <EnvProvider env={env}>
-      <ProtectedLayout>
-        <Outlet />
-      </ProtectedLayout>
+      <Outlet />
     </EnvProvider>
   );
 }

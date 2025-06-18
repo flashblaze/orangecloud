@@ -1,6 +1,15 @@
-import { type RouteConfig, index, route } from '@react-router/dev/routes';
+import { type RouteConfig, index, layout, prefix, route } from '@react-router/dev/routes';
 
 export default [
-  index('routes/home.tsx'),
-  route('buckets/:name', 'routes/buckets/bucket.tsx'),
+  layout('./routes/protected-layout.tsx', [
+    index('./routes/home.tsx'),
+    route('buckets/:name', './routes/buckets/bucket.tsx'),
+  ]),
+  ...prefix('auth', [
+    layout('./routes/auth/auth-layout.tsx', [
+      index('./routes/auth/index.tsx'),
+      route('signup', './routes/auth/signup.tsx'),
+      route('login', './routes/auth/login.tsx'),
+    ]),
+  ]),
 ] satisfies RouteConfig;

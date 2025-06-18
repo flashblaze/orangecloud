@@ -3,7 +3,6 @@ on:
   push:
     branches:
     - main
-    - dev
     paths:
     - "apps/web/**"
     - "apps/api/**"
@@ -99,3 +98,11 @@ jobs:
         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         workingDirectory: apps/api
         command: deploy ${{ github.ref == 'refs/heads/dev' && '--env dev' || '' }}
+
+    - name: Apply D1 Migrations
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_D1_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: apps/api
+        command: d1 migrations apply ORANGECLOUD_DB --remote ${{ github.ref == 'refs/heads/dev' && '--env dev' || '' }}

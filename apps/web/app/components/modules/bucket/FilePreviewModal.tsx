@@ -2,7 +2,7 @@ import { Loader, Modal } from '@mantine/core';
 import { useEffect } from 'react';
 import ShikiHighlighter from 'react-shiki';
 
-import { useEnv } from '~/context/use-env';
+import { useEnv } from '~/context/env-context';
 import useFileContent from '~/queries/buckets/useFileContent';
 import useTextFileContent from '~/queries/buckets/useTextFileContent';
 import { getPreviewType } from '~/utils';

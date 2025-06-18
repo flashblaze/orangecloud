@@ -12,7 +12,7 @@ import Breadcrumb from '~/components/Breadcrumb';
 import CreateFolderModal from '~/components/modules/bucket/CreateFolderModal';
 import FileItem from '~/components/modules/bucket/FileItem';
 import UploadProgress from '~/components/modules/bucket/UploadProgress';
-import { useEnv } from '~/context/use-env';
+import { useEnv } from '~/context/env-context';
 import { useFileUpload } from '~/hooks/useFileUpload';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import { cn } from '~/utils';
