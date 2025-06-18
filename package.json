@@ -33,6 +33,11 @@
   "trustedDependencies": [
     "@biomejs/biome",
     "@tailwindcss/oxide",
-    "web"
+    "better-sqlite3",
+    "canvas",
+    "esbuild",
+    "sharp",
+    "web",
+    "workerd"
   ]
 }
