@@ -1,12 +1,9 @@
 import Cloudflare from 'cloudflare';
-import { eq } from 'drizzle-orm';
 import { XMLParser } from 'fast-xml-parser';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { z } from 'zod/v4';
 
 import { HTTPException } from 'hono/http-exception';
-import createDb from '../db';
-import { configTable } from '../db/schema';
 import authMiddleware from '../middlewares/auth';
 import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
@@ -62,20 +59,19 @@ const multipartUploadSchema = z.object({
   partCount: z.number().min(1).max(10000),
 });
 
+const getUserIdOrThrow = (c: Context<AuthHonoEnv>) => {
+  const userId = c.get('user')?.id;
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
+  return userId;
+};
+
 const bucketsRouter = new Hono<AuthHonoEnv>()
   .post('/', authMiddleware, createValidator('json', createBucketSchema), async (c) => {
     try {
-      const userId = c.get('user')?.id;
-      if (!userId) {
-        throw new HTTPException(401, { message: 'Unauthorized' });
-      }
-
-      const db = createDb(c.env);
-      const userConfig = await db
-        .select()
-        .from(configTable)
-        .where(eq(configTable.userId, userId))
-        .get();
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
 
       if (!userConfig) {
         throw new HTTPException(400, {
@@ -111,18 +107,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get('/', authMiddleware, async (c) => {
     try {
-      const userId = c.get('user')?.id;
-      if (!userId) {
-        throw new HTTPException(401, { message: 'Unauthorized' });
-      }
-
-      // Get user's config
-      const db = createDb(c.env);
-      const userConfig = await db
-        .select()
-        .from(configTable)
-        .where(eq(configTable.userId, userId))
-        .get();
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
 
       if (!userConfig) {
         throw new HTTPException(400, {
@@ -209,11 +195,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get('/metrics', authMiddleware, async (c) => {
     try {
-      const userId = c.get('user')?.id;
-      if (!userId) {
-        throw new HTTPException(401, { message: 'Unauthorized' });
-      }
-
+      const userId = getUserIdOrThrow(c);
       const userConfig = await getUserConfig(userId, c.env);
 
       const cloudflare = new Cloudflare({
@@ -239,14 +221,10 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get('/:name/exists', authMiddleware, async (c) => {
     try {
-      const userId = c.get('user')?.id;
-      if (!userId) {
-        return c.json({ data: null, message: 'Unauthorized' }, 401);
-      }
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
 
       const { name } = c.req.param();
-
-      const userConfig = await getUserConfig(userId, c.env);
 
       const cloudflare = new Cloudflare({
         apiToken: userConfig.cloudflareApiToken,
@@ -269,13 +247,19 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get('/:name', authMiddleware, createValidator('query', contentByPrefixSchema), async (c) => {
     try {
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
+
       const { name } = c.req.param();
       const prefix = c.req.query('prefix') || '';
 
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+      const aws = createAwsClient(
+        userConfig.cloudflareR2AccessKey,
+        userConfig.cloudflareR2SecretKey
+      );
 
       // Build URL with optional prefix
-      let url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`;
+      let url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`;
       if (prefix) {
         url += `&prefix=${encodeURIComponent(prefix)}`;
       }
@@ -360,10 +344,16 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get('/:name/file/:key', authMiddleware, createValidator('param', fileSchema), async (c) => {
     try {
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
+
       const { name, key } = c.req.param();
 
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
+      const aws = createAwsClient(
+        userConfig.cloudflareR2AccessKey,
+        userConfig.cloudflareR2SecretKey
+      );
+      const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
 
       const fileResponse = await aws.fetch(url, {
         method: 'GET',
@@ -398,10 +388,16 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .delete('/:name/file/:key', authMiddleware, createValidator('param', fileSchema), async (c) => {
     try {
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
+
       const { name, key } = c.req.param();
 
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
+      const aws = createAwsClient(
+        userConfig.cloudflareR2AccessKey,
+        userConfig.cloudflareR2SecretKey
+      );
+      const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
 
       const deleteResponse = await aws.fetch(url, {
         method: 'DELETE',
@@ -437,14 +433,17 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   })
   .get('/:name/domains', authMiddleware, async (c) => {
     try {
+      const userId = getUserIdOrThrow(c);
+      const userConfig = await getUserConfig(userId, c.env);
+
       const { name } = c.req.param();
 
       const cloudflare = new Cloudflare({
-        apiToken: c.env.CLOUDFLARE_API_TOKEN,
+        apiToken: userConfig.cloudflareApiToken,
       });
 
       const response = await cloudflare.r2.buckets.domains.custom.list(name, {
-        account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+        account_id: userConfig.cloudflareAccountId,
       });
 
       return c.json(createSuccessResponse(response.domains || []));
@@ -471,14 +470,20 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     ),
     async (c) => {
       try {
+        const userId = getUserIdOrThrow(c);
+        const userConfig = await getUserConfig(userId, c.env);
+
         const { name, key } = c.req.param();
         const { expiresInSeconds } = c.req.valid('json');
 
-        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+        const aws = createAwsClient(
+          userConfig.cloudflareR2AccessKey,
+          userConfig.cloudflareR2SecretKey
+        );
 
         const presignedUrl = await generatePresignedUploadUrl(
           aws,
-          c.env.CLOUDFLARE_ACCOUNT_ID,
+          userConfig.cloudflareAccountId,
           name,
           key,
           expiresInSeconds
@@ -505,6 +510,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     createValidator('query', contentByPrefixSchema),
     async (c) => {
       try {
+        const userId = getUserIdOrThrow(c);
+        const userConfig = await getUserConfig(userId, c.env);
+
         const { name } = c.req.param();
         const { folderName } = c.req.valid('json');
         const prefix = c.req.query('prefix') || '';
@@ -512,8 +520,11 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         // Construct the folder key with prefix and trailing slash
         const folderKey = prefix ? `${prefix}${folderName}/` : `${folderName}/`;
 
-        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(folderKey)}`;
+        const aws = createAwsClient(
+          userConfig.cloudflareR2AccessKey,
+          userConfig.cloudflareR2SecretKey
+        );
+        const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(folderKey)}`;
 
         // Create an empty object to represent the folder
         const createResponse = await aws.fetch(url, {
@@ -558,14 +569,20 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     createValidator('query', contentByPrefixSchema),
     async (c) => {
       try {
+        const userId = getUserIdOrThrow(c);
+        const userConfig = await getUserConfig(userId, c.env);
+
         const { name } = c.req.param();
         const { fileName, fileSize, contentType } = c.req.valid('json');
         const prefix = c.req.query('prefix') || '';
 
         const fileKey = prefix ? `${prefix}${fileName}` : fileName;
-        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+        const aws = createAwsClient(
+          userConfig.cloudflareR2AccessKey,
+          userConfig.cloudflareR2SecretKey
+        );
 
-        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}`;
+        const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}`;
         const urlObj = new URL(url);
         urlObj.searchParams.set('X-Amz-Expires', '7200'); // 2 hours expiry
 
@@ -610,16 +627,22 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     createValidator('query', contentByPrefixSchema),
     async (c) => {
       try {
+        const userId = getUserIdOrThrow(c);
+        const userConfig = await getUserConfig(userId, c.env);
+
         const { name } = c.req.param();
         const { fileName, fileSize, contentType, partCount } = c.req.valid('json');
         const prefix = c.req.query('prefix') || '';
 
         const fileKey = prefix ? `${prefix}${fileName}` : fileName;
-        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+        const aws = createAwsClient(
+          userConfig.cloudflareR2AccessKey,
+          userConfig.cloudflareR2SecretKey
+        );
 
         const uploadId = await initializeMultipartUpload(
           aws,
-          c.env.CLOUDFLARE_ACCOUNT_ID,
+          userConfig.cloudflareAccountId,
           name,
           fileKey,
           contentType
@@ -627,7 +650,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
 
         const partUrls = await generateMultipartUploadUrls(
           aws,
-          c.env.CLOUDFLARE_ACCOUNT_ID,
+          userConfig.cloudflareAccountId,
           name,
           fileKey,
           uploadId,
@@ -674,14 +697,20 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     ),
     async (c) => {
       try {
+        const userId = getUserIdOrThrow(c);
+        const userConfig = await getUserConfig(userId, c.env);
+
         const { name } = c.req.param();
         const { uploadId, fileKey, parts } = c.req.valid('json');
 
-        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+        const aws = createAwsClient(
+          userConfig.cloudflareR2AccessKey,
+          userConfig.cloudflareR2SecretKey
+        );
 
         await completeMultipartUpload(
           aws,
-          c.env.CLOUDFLARE_ACCOUNT_ID,
+          userConfig.cloudflareAccountId,
           name,
           fileKey,
           uploadId,
@@ -708,12 +737,18 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     ),
     async (c) => {
       try {
+        const userId = getUserIdOrThrow(c);
+        const userConfig = await getUserConfig(userId, c.env);
+
         const { name } = c.req.param();
         const { uploadId, fileKey } = c.req.valid('json');
 
-        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+        const aws = createAwsClient(
+          userConfig.cloudflareR2AccessKey,
+          userConfig.cloudflareR2SecretKey
+        );
 
-        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}?uploadId=${uploadId}`;
+        const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}?uploadId=${uploadId}`;
 
         const abortResponse = await aws.fetch(url, {
           method: 'DELETE',

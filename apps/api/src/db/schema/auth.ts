@@ -19,6 +19,7 @@ export const userTable = sqliteTable('user', {
     .$defaultFn(() => false)
     .notNull(),
   image: text(),
+  filesViewMode: text().$type<'list' | 'grid'>().default('list'),
   ...timeStamps,
 });
 

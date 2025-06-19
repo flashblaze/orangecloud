@@ -230,7 +230,7 @@ const Bucket = () => {
           {bucketContentByName.isLoading ? (
             <div
               className={cn(
-                'grid grid-cols-1 gap-2',
+                'mt-5 grid grid-cols-1 gap-2',
                 viewMode === 'grid' &&
                   'grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
               )}

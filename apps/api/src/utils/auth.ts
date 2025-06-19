@@ -17,6 +17,15 @@ const auth = (env: Env['Bindings']) =>
         verification: verificationTable,
       },
     }),
+    user: {
+      additionalFields: {
+        filesViewMode: {
+          type: 'string',
+          enum: ['list', 'grid'],
+          default: 'list',
+        },
+      },
+    },
     secret: env.BETTER_AUTH_SECRET,
     basePath: '/auth',
     baseUrl: env.BASE_URL,
