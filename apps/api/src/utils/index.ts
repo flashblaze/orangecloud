@@ -1,8 +1,14 @@
 import { AwsClient } from 'aws4fetch';
+import { eq } from 'drizzle-orm';
+import { HTTPException } from 'hono/http-exception';
 import type { CookieOptions } from 'hono/utils/cookie';
 import { customAlphabet } from 'nanoid';
 
-import type {} from '../types';
+import type { Context } from 'hono';
+import createDb from '../db';
+import { configTable } from '../db/schema';
+import type { AuthHonoEnv } from '../types';
+import type { Env } from '../types/hono-env.types';
 import { COOKIE_NAME } from './constants';
 
 export const convertDaysToSeconds = (days: number) => 60 * 60 * 24 * days;
@@ -45,4 +51,33 @@ export const createAwsClient = (accessKeyId: string, secretAccessKey: string) =>
     secretAccessKey,
     region: 'auto',
   });
+};
+
+export async function getUserConfig(userId: string, env: Env['Bindings']) {
+  try {
+    const db = createDb(env);
+    const userConfig = await db
+      .select()
+      .from(configTable)
+      .where(eq(configTable.userId, userId))
+      .get();
+
+    if (!userConfig) {
+      throw new HTTPException(400, { message: 'Please configure your Cloudflare settings first' });
+    }
+
+    return userConfig;
+  } catch (error) {
+    throw new HTTPException(500, {
+      message: error instanceof Error ? error.message : 'Internal server error',
+    });
+  }
+}
+
+export const getUserIdOrThrow = (c: Context<AuthHonoEnv>) => {
+  const userId = c.get('user')?.id;
+  if (!userId) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
+  return userId;
 };

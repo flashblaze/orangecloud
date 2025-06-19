@@ -1,5 +1,8 @@
 import { Card } from '@mantine/core';
-import { Link } from 'react-router';
+import { Link, redirect } from 'react-router';
+
+import { notifications } from '@mantine/notifications';
+import { useEffect } from 'react';
 import { formatFileSize } from '~/utils';
 import { createClient } from '~/utils/client';
 import IconDatabase from '~icons/solar/database-bold-duotone';
@@ -11,8 +14,15 @@ export function meta() {
   return [{ title: 'OrangeCloud' }, { name: 'description', content: 'Welcome to OrangeCloud!' }];
 }
 
-export async function loader() {
-  const client = createClient(undefined, true);
+export async function loader({ request }: Route.LoaderArgs) {
+  const client = createClient(request.headers, true);
+
+  const userConfigResponse = await client.config.$get();
+  const userConfig = await userConfigResponse.json();
+
+  if (!userConfig.data && !request.url.includes('/settings')) {
+    return redirect('/settings');
+  }
 
   try {
     const [bucketsResponse, metricsResponse] = await Promise.all([
@@ -25,6 +35,13 @@ export async function loader() {
       metricsResponse.json(),
     ]);
 
+    if (!bucketsResponse.ok) {
+      throw new Error(bucketsJson.message || 'Failed to fetch buckets');
+    }
+    if (!metricsResponse.ok) {
+      throw new Error(metricsJson.message || 'Failed to fetch metrics');
+    }
+
     return {
       buckets: bucketsJson.data,
       metrics: metricsJson.data,
@@ -33,7 +50,7 @@ export async function loader() {
     console.error('Error fetching data:', error);
     return {
       buckets: [],
-      metrics: null,
+      message: error instanceof Error ? error.message : 'Failed to fetch data',
     };
   }
 }
@@ -48,6 +65,16 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
       (metrics.infrequentAccess?.published?.payloadSize || 0) +
       (metrics.infrequentAccess?.uploaded?.payloadSize || 0)
     : 0;
+
+  useEffect(() => {
+    if (loaderData.message) {
+      notifications.show({
+        title: 'Error',
+        message: loaderData.message,
+        color: 'red',
+      });
+    }
+  }, [loaderData.message]);
 
   return (
     <section>

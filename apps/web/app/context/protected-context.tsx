@@ -20,6 +20,7 @@ interface ProtectedContextType {
       createdAt: Date;
       updatedAt: Date;
       image?: string | null;
+      filesViewMode?: 'list' | 'grid' | null;
     };
   };
 }

@@ -4,6 +4,7 @@ export default [
   layout('./routes/protected-layout.tsx', [
     index('./routes/home.tsx'),
     route('buckets/:name', './routes/buckets/bucket.tsx'),
+    route('settings', './routes/settings.tsx'),
   ]),
   ...prefix('auth', [
     layout('./routes/auth/auth-layout.tsx', [

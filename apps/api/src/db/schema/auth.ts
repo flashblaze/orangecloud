@@ -11,7 +11,7 @@ const timeStamps = {
     .$onUpdate(() => new Date()),
 };
 
-export const user = sqliteTable('user', {
+export const userTable = sqliteTable('user', {
   id: text().primaryKey(),
   name: text().notNull(),
   email: text().notNull().unique(),
@@ -19,12 +19,13 @@ export const user = sqliteTable('user', {
     .$defaultFn(() => false)
     .notNull(),
   image: text(),
+  filesViewMode: text().$type<'list' | 'grid'>().default('list'),
   ...timeStamps,
 });
 
-export type User = InferSelectModel<typeof user>;
+export type User = InferSelectModel<typeof userTable>;
 
-export const session = sqliteTable('session', {
+export const sessionTable = sqliteTable('session', {
   id: text().primaryKey(),
   expiresAt: integer({ mode: 'timestamp' }).notNull(),
   token: text().notNull().unique(),
@@ -32,17 +33,17 @@ export const session = sqliteTable('session', {
   userAgent: text(),
   userId: text()
     .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
+    .references(() => userTable.id, { onDelete: 'cascade' }),
   ...timeStamps,
 });
 
-export type Session = InferSelectModel<typeof session>;
+export type Session = InferSelectModel<typeof sessionTable>;
 
-export const account = sqliteTable('account', {
+export const accountTable = sqliteTable('account', {
   id: text().primaryKey(),
   userId: text()
     .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
+    .references(() => userTable.id, { onDelete: 'cascade' }),
   accountId: text().notNull(),
   providerId: text().notNull(),
   accessToken: text(),
@@ -55,9 +56,9 @@ export const account = sqliteTable('account', {
   ...timeStamps,
 });
 
-export type Account = InferSelectModel<typeof account>;
+export type Account = InferSelectModel<typeof accountTable>;
 
-export const verification = sqliteTable('verification', {
+export const verificationTable = sqliteTable('verification', {
   id: text().primaryKey(),
   identifier: text().notNull(),
   value: text().notNull(),
@@ -65,20 +66,20 @@ export const verification = sqliteTable('verification', {
   ...timeStamps,
 });
 
-export type Verification = InferSelectModel<typeof verification>;
+export type Verification = InferSelectModel<typeof verificationTable>;
 
 // Relations
 
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, {
-    fields: [account.userId],
-    references: [user.id],
+export const accountRelations = relations(accountTable, ({ one }) => ({
+  user: one(userTable, {
+    fields: [accountTable.userId],
+    references: [userTable.id],
   }),
 }));
 
-export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, {
-    fields: [session.userId],
-    references: [user.id],
+export const sessionRelations = relations(sessionTable, ({ one }) => ({
+  user: one(userTable, {
+    fields: [sessionTable.userId],
+    references: [userTable.id],
   }),
 }));

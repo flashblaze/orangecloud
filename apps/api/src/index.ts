@@ -3,13 +3,20 @@ import { Hono } from 'hono';
 import { deleteCookie, getCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { csrf } from 'hono/csrf';
+import { HTTPException } from 'hono/http-exception';
 
+import { errorHandler } from './middlewares/errorHandler';
+import sessionMiddleware from './middlewares/session';
 import bucketsRouter from './routes/buckets';
+import configRouter from './routes/config';
+import userRouter from './routes/user';
 import type { Env } from './types/hono-env.types';
 import { getCookieName, getCookieOptions } from './utils';
 import auth from './utils/auth';
 
 const app = new Hono<Env>();
+
+app.onError(errorHandler);
 
 app.use(
   cloudflareRateLimiter<Env>({
@@ -18,19 +25,14 @@ app.use(
       try {
         const cookieData = JSON.parse(getCookie(c, getCookieName(c.env.ENVIRONMENT)) ?? '{}');
         return cookieData.userId ?? c.req.header('CF-Connecting-IP') ?? '';
-      } catch (_err) {
+      } catch {
         deleteCookie(c, getCookieName(c.env.ENVIRONMENT), getCookieOptions(c.env.ENVIRONMENT));
-        return c.json({ message: 'Unauthorized' }, 401);
+        throw new HTTPException(401, { message: 'Unauthorized' });
       }
     },
     handler: (c) => {
       deleteCookie(c, getCookieName(c.env.ENVIRONMENT), getCookieOptions(c.env.ENVIRONMENT));
-      return c.json(
-        {
-          message: 'Rate limit exceeded',
-        },
-        429
-      );
+      throw new HTTPException(429, { message: 'Rate limit exceeded' });
     },
   }),
   (c, next) => {
@@ -48,18 +50,20 @@ app.use(
   }
 );
 
+app.use('*', sessionMiddleware);
+
 const routes = app
   .route('/buckets', bucketsRouter)
+  .route('/config', configRouter)
+  .route('/user', userRouter)
   .all('/auth/*', (c) => auth(c.env).handler(c.req.raw))
   .get('/session', async (c) => {
     const session = await auth(c.env).api.getSession(c.req.raw);
     return c.json(session);
   })
   .get('/', async (c) => {
-    const token = getCookie(c, getCookieName(c.env.ENVIRONMENT));
     return c.json({
       message: 'Hello!',
-      token,
     });
   });
 
