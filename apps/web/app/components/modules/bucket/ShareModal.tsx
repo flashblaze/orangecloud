@@ -102,8 +102,8 @@ const ShareModal = ({ opened, onClose, bucketName, fileKey, fileName }: ShareMod
         expiresInSeconds: Number.parseInt(data.duration),
       });
 
-      const presignedUrl = result.data.presignedUrl;
-      setGeneratedUrl(presignedUrl);
+      const presignedUrl = result.data?.presignedUrl;
+      setGeneratedUrl(presignedUrl || '');
 
       notifications.show({
         message: 'Presigned URL generated successfully',

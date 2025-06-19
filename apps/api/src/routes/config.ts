@@ -1,4 +1,3 @@
-import { zValidator } from '@hono/zod-validator';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -7,9 +6,10 @@ import { z } from 'zod/v4';
 import createDb from '../db';
 import { configTable } from '../db/schema';
 import authMiddleware from '../middlewares/auth';
+import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv } from '../types';
-import { createSuccessResponse } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { createSuccessResponse } from '../utils/responses';
 
 const saveConfigSchema = z.object({
   cloudflareAccountId: z.string().min(1, 'Cloudflare Account ID is required'),
@@ -20,13 +20,13 @@ const saveConfigSchema = z.object({
 
 const configRouter = new Hono<AuthHonoEnv>()
   .get('/', authMiddleware, async (c) => {
-    const userId = c.get('user')?.id;
-
-    if (!userId) {
-      throw new HTTPException(401, { message: 'Unauthorized' });
-    }
-
     try {
+      const userId = c.get('user')?.id;
+
+      if (!userId) {
+        throw new HTTPException(401, { message: 'Unauthorized' });
+      }
+
       const db = createDb(c.env);
       const config = await db
         .select()
@@ -47,19 +47,13 @@ const configRouter = new Hono<AuthHonoEnv>()
 
       return c.json(createSuccessResponse(configData));
     } catch (error) {
-      logger.error('Error fetching config:', error, { userId });
-      throw new HTTPException(500, { message: 'Internal server error' });
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
   })
-  .post(
-    '/',
-    authMiddleware,
-    zValidator('json', saveConfigSchema, (result, _c) => {
-      if (!result.success) {
-        throw new HTTPException(400, { message: result.error.issues[0].message });
-      }
-    }),
-    async (c) => {
+  .post('/', authMiddleware, createValidator('json', saveConfigSchema), async (c) => {
+    try {
       const userId = c.get('user')?.id;
       const data = c.req.valid('json');
 
@@ -67,39 +61,38 @@ const configRouter = new Hono<AuthHonoEnv>()
         throw new HTTPException(401, { message: 'Unauthorized' });
       }
 
-      try {
-        const db = createDb(c.env);
+      const db = createDb(c.env);
 
-        const existingConfig = await db
-          .select()
-          .from(configTable)
-          .where(eq(configTable.userId, userId))
-          .get();
+      const existingConfig = await db
+        .select()
+        .from(configTable)
+        .where(eq(configTable.userId, userId))
+        .get();
 
-        if (existingConfig) {
-          await db.update(configTable).set(data).where(eq(configTable.userId, userId));
-          logger.info('Config updated', { userId });
-        } else {
-          await db.insert(configTable).values({
-            ...data,
-            userId,
-          });
-          logger.info('Config created', { userId });
-        }
-
-        const responseData = {
-          cloudflareAccountId: data.cloudflareAccountId,
-          cloudflareApiToken: data.cloudflareApiToken,
-          cloudflareR2AccessKey: data.cloudflareR2AccessKey,
-          cloudflareR2SecretKey: data.cloudflareR2SecretKey,
-        };
-
-        return c.json(createSuccessResponse(responseData, 'Configuration saved successfully'));
-      } catch (error) {
-        logger.error('Error saving config:', error, { userId });
-        throw new HTTPException(500, { message: 'Internal server error' });
+      if (existingConfig) {
+        await db.update(configTable).set(data).where(eq(configTable.userId, userId));
+        logger.info('Config updated', { userId });
+      } else {
+        await db.insert(configTable).values({
+          ...data,
+          userId,
+        });
+        logger.info('Config created', { userId });
       }
+
+      const responseData = {
+        cloudflareAccountId: data.cloudflareAccountId,
+        cloudflareApiToken: data.cloudflareApiToken,
+        cloudflareR2AccessKey: data.cloudflareR2AccessKey,
+        cloudflareR2SecretKey: data.cloudflareR2SecretKey,
+      };
+
+      return c.json(createSuccessResponse(responseData, 'Configuration saved successfully'));
+    } catch (error) {
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
-  );
+  });
 
 export default configRouter;

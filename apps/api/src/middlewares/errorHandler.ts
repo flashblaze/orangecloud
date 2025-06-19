@@ -3,8 +3,8 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 
 import type { Env } from '../types/hono-env.types';
-import { createErrorResponse, handleCloudflareError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { createErrorResponse, handleCloudflareError } from '../utils/responses';
 
 export const errorHandler = (err: Error, c: Context<Env>) => {
   logger.error('API Error', err, {
@@ -24,20 +24,6 @@ export const errorHandler = (err: Error, c: Context<Env>) => {
     // Otherwise, format it according to our pattern
     const message = err.message || 'HTTP Exception';
     return c.json(createErrorResponse(message), response.status as any);
-  }
-
-  // Handle validation errors from Zod
-  if (err.name === 'ZodError') {
-    const zodError = err as any;
-    const firstError = zodError.issues?.[0];
-    const message = firstError?.message || 'Validation error';
-    return c.json(createErrorResponse(message), 400);
-  }
-
-  // Handle database errors
-  if (err.message?.includes('D1_') || err.message?.includes('SQLITE')) {
-    logger.error('Database error', err);
-    return c.json(createErrorResponse('Database error occurred'), 500);
   }
 
   // Handle Cloudflare API errors

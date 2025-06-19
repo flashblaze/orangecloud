@@ -12,7 +12,6 @@ import configRouter from './routes/config';
 import type { Env } from './types/hono-env.types';
 import { getCookieName, getCookieOptions } from './utils';
 import auth from './utils/auth';
-import { logger } from './utils/logger';
 
 const app = new Hono<Env>();
 
@@ -25,8 +24,7 @@ app.use(
       try {
         const cookieData = JSON.parse(getCookie(c, getCookieName(c.env.ENVIRONMENT)) ?? '{}');
         return cookieData.userId ?? c.req.header('CF-Connecting-IP') ?? '';
-      } catch (err) {
-        logger.warn('Invalid cookie format', { error: err });
+      } catch {
         deleteCookie(c, getCookieName(c.env.ENVIRONMENT), getCookieOptions(c.env.ENVIRONMENT));
         throw new HTTPException(401, { message: 'Unauthorized' });
       }

@@ -1,17 +1,18 @@
-import { zValidator } from '@hono/zod-validator';
 import Cloudflare from 'cloudflare';
 import { eq } from 'drizzle-orm';
 import { XMLParser } from 'fast-xml-parser';
 import { Hono } from 'hono';
 import { z } from 'zod/v4';
 
+import { HTTPException } from 'hono/http-exception';
 import createDb from '../db';
 import { configTable } from '../db/schema';
 import authMiddleware from '../middlewares/auth';
+import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient } from '../utils';
-import {} from '../utils/errors';
 import { getUserConfig } from '../utils/getUserConfig';
+import { createSuccessResponse } from '../utils/responses';
 import {
   completeMultipartUpload,
   generateMultipartUploadUrls,
@@ -62,24 +63,11 @@ const multipartUploadSchema = z.object({
 });
 
 const bucketsRouter = new Hono<AuthHonoEnv>()
-  .post(
-    '/',
-    authMiddleware,
-    zValidator('json', createBucketSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
-    async (c) => {
+  .post('/', authMiddleware, createValidator('json', createBucketSchema), async (c) => {
+    try {
       const userId = c.get('user')?.id;
       if (!userId) {
-        return c.json({ data: null, message: 'Unauthorized' }, 401);
+        throw new HTTPException(401, { message: 'Unauthorized' });
       }
 
       const db = createDb(c.env);
@@ -90,13 +78,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         .get();
 
       if (!userConfig) {
-        return c.json(
-          {
-            data: null,
-            message: 'Please configure your Cloudflare settings first',
-          },
-          400
-        );
+        throw new HTTPException(400, {
+          message: 'Please configure your Cloudflare settings first',
+        });
       }
 
       const { name, locationHint, storageClass } = c.req.valid('json');
@@ -105,137 +89,131 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         apiToken: userConfig.cloudflareApiToken,
       });
 
-      try {
-        const response = await cloudflare.r2.buckets.create({
-          account_id: userConfig.cloudflareAccountId,
-          name,
-          locationHint,
-          storageClass,
-        });
+      const response = await cloudflare.r2.buckets.create({
+        account_id: userConfig.cloudflareAccountId,
+        name,
+        locationHint,
+        storageClass,
+      });
 
-        return c.json({
-          data: response,
-          message: 'Bucket created successfully',
+      return c.json(createSuccessResponse(response, 'Bucket created successfully'));
+    } catch (error) {
+      if (error instanceof Cloudflare.APIError) {
+        throw new HTTPException(error.status || 400, {
+          message: error.errors[0].message || 'Failed to create bucket',
         });
-      } catch (error) {
-        if (error instanceof Cloudflare.APIError) {
-          return c.json(
-            {
-              data: null,
-              message: error.errors[0].message || 'Failed to create bucket',
-            },
-            error.status || 400
-          );
-        }
-
-        console.error('Error creating bucket:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Internal server error',
-          },
-          500
-        );
       }
+
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
-  )
+  })
   .get('/', authMiddleware, async (c) => {
-    const userId = c.get('user')?.id;
-    if (!userId) {
-      return c.json({ data: null, message: 'Unauthorized' }, 401);
-    }
+    try {
+      const userId = c.get('user')?.id;
+      if (!userId) {
+        throw new HTTPException(401, { message: 'Unauthorized' });
+      }
 
-    // Get user's config
-    const db = createDb(c.env);
-    const userConfig = await db
-      .select()
-      .from(configTable)
-      .where(eq(configTable.userId, userId))
-      .get();
+      // Get user's config
+      const db = createDb(c.env);
+      const userConfig = await db
+        .select()
+        .from(configTable)
+        .where(eq(configTable.userId, userId))
+        .get();
 
-    if (!userConfig) {
-      return c.json(
-        {
-          data: [],
+      if (!userConfig) {
+        throw new HTTPException(400, {
           message: 'Please configure your Cloudflare settings first',
-        },
-        400
+        });
+      }
+
+      const cloudflare = new Cloudflare({
+        apiToken: userConfig.cloudflareApiToken,
+      });
+
+      const response = await cloudflare.r2.buckets.list({
+        account_id: userConfig.cloudflareAccountId,
+      });
+
+      // Get size information for each bucket
+      const aws = createAwsClient(
+        userConfig.cloudflareR2AccessKey,
+        userConfig.cloudflareR2SecretKey
       );
-    }
 
-    const cloudflare = new Cloudflare({
-      apiToken: userConfig.cloudflareApiToken,
-    });
+      const buckets = response.buckets || [];
+      const bucketsWithSize = await Promise.all(
+        buckets.map(async (bucket) => {
+          try {
+            const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${bucket.name}?list-type=2`;
+            const bucketContent = await aws.fetch(url, { method: 'GET' });
 
-    const response = await cloudflare.r2.buckets.list({
-      account_id: userConfig.cloudflareAccountId,
-    });
+            if (bucketContent.ok) {
+              const bucketContentText = await bucketContent.text();
+              const parser = new XMLParser();
+              const json = parser.parse(bucketContentText) as BucketContent;
 
-    // Get size information for each bucket
-    const aws = createAwsClient(userConfig.cloudflareR2AccessKey, userConfig.cloudflareR2SecretKey);
+              let totalSize = 0;
+              let objectCount = 0;
 
-    const buckets = response.buckets || [];
-    const bucketsWithSize = await Promise.all(
-      buckets.map(async (bucket) => {
-        try {
-          const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${bucket.name}?list-type=2`;
-          const bucketContent = await aws.fetch(url, { method: 'GET' });
+              if (json.ListBucketResult.Contents) {
+                const contents = Array.isArray(json.ListBucketResult.Contents)
+                  ? json.ListBucketResult.Contents
+                  : [json.ListBucketResult.Contents];
 
-          if (bucketContent.ok) {
-            const bucketContentText = await bucketContent.text();
-            const parser = new XMLParser();
-            const json = parser.parse(bucketContentText) as BucketContent;
+                for (const content of contents) {
+                  // Only skip folder markers (keys ending with '/')
+                  // Don't skip zero-byte files as they are legitimate empty files
+                  if (content.Key.endsWith('/')) {
+                    continue;
+                  }
 
-            let totalSize = 0;
-            let objectCount = 0;
-
-            if (json.ListBucketResult.Contents) {
-              const contents = Array.isArray(json.ListBucketResult.Contents)
-                ? json.ListBucketResult.Contents
-                : [json.ListBucketResult.Contents];
-
-              for (const content of contents) {
-                // Only skip folder markers (keys ending with '/')
-                // Don't skip zero-byte files as they are legitimate empty files
-                if (content.Key.endsWith('/')) {
-                  continue;
+                  totalSize += content.Size;
+                  objectCount += 1;
                 }
-
-                totalSize += content.Size;
-                objectCount += 1;
               }
+
+              return {
+                ...bucket,
+                size: totalSize,
+                objectCount,
+              };
             }
-
-            return {
-              ...bucket,
-              size: totalSize,
-              objectCount,
-            };
+          } catch (error) {
+            console.error(`Error fetching size for bucket ${bucket.name}:`, error);
           }
-        } catch (error) {
-          console.error(`Error fetching size for bucket ${bucket.name}:`, error);
-        }
 
-        return {
-          ...bucket,
-          size: 0,
-          objectCount: 0,
-        };
-      })
-    );
+          return {
+            ...bucket,
+            size: 0,
+            objectCount: 0,
+          };
+        })
+      );
 
-    return c.json({
-      data: bucketsWithSize,
-      message: 'Success',
-    });
+      return c.json(createSuccessResponse(bucketsWithSize));
+    } catch (error) {
+      if (error instanceof Cloudflare.APIError) {
+        throw new HTTPException(error.status || 400, {
+          message: error.errors[0].message || 'Failed to list buckets',
+        });
+      }
+
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
   })
   .get('/metrics', authMiddleware, async (c) => {
-    const userId = c.get('user')?.id;
-    if (!userId) {
-      return c.json({ data: null, message: 'Unauthorized' }, 401);
-    }
-
     try {
+      const userId = c.get('user')?.id;
+      if (!userId) {
+        throw new HTTPException(401, { message: 'Unauthorized' });
+      }
+
       const userConfig = await getUserConfig(userId, c.env);
 
       const cloudflare = new Cloudflare({
@@ -246,30 +224,28 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         account_id: userConfig.cloudflareAccountId,
       });
 
-      return c.json({
-        data: metrics,
-        message: 'Success',
-      });
+      return c.json(createSuccessResponse(metrics));
     } catch (error) {
-      console.error('Error fetching metrics:', error);
-      return c.json(
-        {
-          data: null,
-          message: error instanceof Error ? error.message : 'Failed to fetch metrics',
-        },
-        500
-      );
+      if (error instanceof Cloudflare.APIError) {
+        throw new HTTPException(error.status || 400, {
+          message: error.errors[0].message || 'Failed to fetch metrics',
+        });
+      }
+
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
   })
   .get('/:name/exists', authMiddleware, async (c) => {
-    const userId = c.get('user')?.id;
-    if (!userId) {
-      return c.json({ data: null, message: 'Unauthorized' }, 401);
-    }
-
-    const { name } = c.req.param();
-
     try {
+      const userId = c.get('user')?.id;
+      if (!userId) {
+        return c.json({ data: null, message: 'Unauthorized' }, 401);
+      }
+
+      const { name } = c.req.param();
+
       const userConfig = await getUserConfig(userId, c.env);
 
       const cloudflare = new Cloudflare({
@@ -279,151 +255,160 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       await cloudflare.r2.buckets.get(name, {
         account_id: userConfig.cloudflareAccountId,
       });
+
+      return c.json(createSuccessResponse(true, 'Bucket exists'));
     } catch (error) {
       if (error instanceof Cloudflare.APIError) {
+        throw new HTTPException(404, { message: 'Bucket not found' });
+      }
+
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
+  })
+  .get('/:name', authMiddleware, createValidator('query', contentByPrefixSchema), async (c) => {
+    try {
+      const { name } = c.req.param();
+      const prefix = c.req.query('prefix') || '';
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
+      // Build URL with optional prefix
+      let url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`;
+      if (prefix) {
+        url += `&prefix=${encodeURIComponent(prefix)}`;
+      }
+
+      const bucketContent = await aws.fetch(url, {
+        method: 'GET',
+      });
+
+      if (!bucketContent.ok) {
         return c.json(
           {
             data: null,
-            message: 'Bucket not found',
+            message: 'Bucket content not found',
           },
           404
         );
       }
-      if (error instanceof Error && error.message.includes('configure')) {
-        return c.json(
-          {
-            data: null,
-            message: error.message,
-          },
-          400
-        );
-      }
-    }
 
-    return c.json({
-      data: null,
-      message: 'Success',
-    });
-  })
-  .get('/:name', authMiddleware, zValidator('query', contentByPrefixSchema), async (c) => {
-    const { name } = c.req.param();
-    const prefix = c.req.query('prefix') || '';
+      const bucketContentText = await bucketContent.text();
+      const parser = new XMLParser();
+      const json = parser.parse(bucketContentText) as BucketContent;
 
-    const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+      // Process folders (CommonPrefixes)
+      const folders: FileSystemItem[] = [];
+      if (json.ListBucketResult.CommonPrefixes) {
+        const prefixes = Array.isArray(json.ListBucketResult.CommonPrefixes)
+          ? json.ListBucketResult.CommonPrefixes
+          : [json.ListBucketResult.CommonPrefixes];
 
-    // Build URL with optional prefix
-    let url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}?list-type=2&delimiter=/`;
-    if (prefix) {
-      url += `&prefix=${encodeURIComponent(prefix)}`;
-    }
-
-    const bucketContent = await aws.fetch(url, {
-      method: 'GET',
-    });
-
-    if (!bucketContent.ok) {
-      return c.json(
-        {
-          data: null,
-          message: 'Bucket content not found',
-        },
-        404
-      );
-    }
-
-    const bucketContentText = await bucketContent.text();
-    const parser = new XMLParser();
-    const json = parser.parse(bucketContentText) as BucketContent;
-
-    // Process folders (CommonPrefixes)
-    const folders: FileSystemItem[] = [];
-    if (json.ListBucketResult.CommonPrefixes) {
-      const prefixes = Array.isArray(json.ListBucketResult.CommonPrefixes)
-        ? json.ListBucketResult.CommonPrefixes
-        : [json.ListBucketResult.CommonPrefixes];
-
-      for (const prefixObj of prefixes) {
-        const folderName = prefixObj.Prefix.replace(prefix, '').replace('/', '');
-        if (folderName) {
-          folders.push({
-            key: prefixObj.Prefix,
-            name: folderName,
-            type: 'folder',
-          });
+        for (const prefixObj of prefixes) {
+          const folderName = prefixObj.Prefix.replace(prefix, '').replace('/', '');
+          if (folderName) {
+            folders.push({
+              key: prefixObj.Prefix,
+              name: folderName,
+              type: 'folder',
+            });
+          }
         }
       }
-    }
 
-    // Process files (Contents)
-    const files: FileSystemItem[] = [];
-    if (json.ListBucketResult.Contents) {
-      const contents = Array.isArray(json.ListBucketResult.Contents)
-        ? json.ListBucketResult.Contents
-        : [json.ListBucketResult.Contents];
+      // Process files (Contents)
+      const files: FileSystemItem[] = [];
+      if (json.ListBucketResult.Contents) {
+        const contents = Array.isArray(json.ListBucketResult.Contents)
+          ? json.ListBucketResult.Contents
+          : [json.ListBucketResult.Contents];
 
-      for (const content of contents) {
-        // Skip if this is a folder marker or the current prefix
-        if (content.Key === prefix || content.Key.endsWith('/')) continue;
+        for (const content of contents) {
+          // Skip if this is a folder marker or the current prefix
+          if (content.Key === prefix || content.Key.endsWith('/')) continue;
 
-        const fileName = content.Key.replace(prefix, '');
-        if (fileName) {
-          files.push({
-            key: content.Key,
-            name: fileName,
-            type: 'file',
-            size: content.Size,
-            lastModified: content.LastModified,
-            etag: content.ETag,
-          });
+          const fileName = content.Key.replace(prefix, '');
+          if (fileName) {
+            files.push({
+              key: content.Key,
+              name: fileName,
+              type: 'file',
+              size: content.Size,
+              lastModified: content.LastModified,
+              etag: content.ETag,
+            });
+          }
         }
       }
+
+      // Sort files by lastModified in descending order (most recent first)
+      files.sort((a, b) => {
+        const dateA = new Date(a.lastModified || 0);
+        const dateB = new Date(b.lastModified || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      const items = [...folders, ...files];
+
+      return c.json(createSuccessResponse({ items, prefix, bucketName: name }));
+    } catch (error) {
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
-
-    // Sort files by lastModified in descending order (most recent first)
-    files.sort((a, b) => {
-      const dateA = new Date(a.lastModified || 0);
-      const dateB = new Date(b.lastModified || 0);
-      return dateB.getTime() - dateA.getTime();
-    });
-
-    const items = [...folders, ...files];
-
-    return c.json({
-      data: {
-        items,
-        prefix,
-        bucketName: name,
-      },
-      message: 'Success',
-    });
   })
-  .get(
-    '/:name/file/:key',
-    authMiddleware,
-    zValidator('param', fileSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
-    async (c) => {
+  .get('/:name/file/:key', authMiddleware, createValidator('param', fileSchema), async (c) => {
+    try {
       const { name, key } = c.req.param();
 
       const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
       const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
 
-      try {
-        const fileResponse = await aws.fetch(url, {
-          method: 'GET',
-        });
+      const fileResponse = await aws.fetch(url, {
+        method: 'GET',
+      });
 
-        if (!fileResponse.ok) {
-          console.error(`File not found: ${fileResponse.status}`);
+      if (!fileResponse.ok) {
+        console.error(`File not found: ${fileResponse.status}`);
+        return c.json(
+          {
+            data: null,
+            message: 'File not found',
+          },
+          404
+        );
+      }
+
+      // Add this critical fix - read the body completely before returning
+      const fileBuffer = await fileResponse.arrayBuffer();
+
+      return new Response(fileBuffer, {
+        headers: {
+          'Content-Type': fileResponse.headers.get('Content-Type') || 'application/octet-stream',
+          'Content-Length': fileBuffer.byteLength.toString(),
+          'Cache-Control': 'public, max-age=31536000',
+        },
+      });
+    } catch (error) {
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
+  })
+  .delete('/:name/file/:key', authMiddleware, createValidator('param', fileSchema), async (c) => {
+    try {
+      const { name, key } = c.req.param();
+
+      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
+
+      const deleteResponse = await aws.fetch(url, {
+        method: 'DELETE',
+      });
+
+      if (!deleteResponse.ok) {
+        if (deleteResponse.status === 404) {
           return c.json(
             {
               data: null,
@@ -433,139 +418,64 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           );
         }
 
-        // Add this critical fix - read the body completely before returning
-        const fileBuffer = await fileResponse.arrayBuffer();
-
-        return new Response(fileBuffer, {
-          headers: {
-            'Content-Type': fileResponse.headers.get('Content-Type') || 'application/octet-stream',
-            'Content-Length': fileBuffer.byteLength.toString(),
-            'Cache-Control': 'public, max-age=31536000',
-          },
-        });
-      } catch (error) {
-        console.error('Error fetching file:', error);
+        console.error(`Failed to delete file: ${deleteResponse.status}`);
         return c.json(
           {
             data: null,
-            message: 'Internal server error',
+            message: 'Failed to delete file',
           },
           500
         );
       }
+
+      return c.json(createSuccessResponse({ key, bucketName: name }));
+    } catch (error) {
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
-  )
-  .delete(
-    '/:name/file/:key',
-    authMiddleware,
-    zValidator(
-      'param',
-      z.object({
-        name: z.string({ error: 'Name is required' }),
-        key: z.string({ error: 'Key is required' }),
-      })
-    ),
-    async (c) => {
-      const { name, key } = c.req.param();
-
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${decodeURIComponent(key)}`;
-
-      try {
-        const deleteResponse = await aws.fetch(url, {
-          method: 'DELETE',
-        });
-
-        if (!deleteResponse.ok) {
-          if (deleteResponse.status === 404) {
-            return c.json(
-              {
-                data: null,
-                message: 'File not found',
-              },
-              404
-            );
-          }
-
-          console.error(`Failed to delete file: ${deleteResponse.status}`);
-          return c.json(
-            {
-              data: null,
-              message: 'Failed to delete file',
-            },
-            500
-          );
-        }
-
-        return c.json({
-          data: { key, bucketName: name },
-          message: 'Success',
-        });
-      } catch (error) {
-        console.error('Error deleting file:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Internal server error',
-          },
-          500
-        );
-      }
-    }
-  )
+  })
   .get('/:name/domains', authMiddleware, async (c) => {
-    const { name } = c.req.param();
-
-    const cloudflare = new Cloudflare({
-      apiToken: c.env.CLOUDFLARE_API_TOKEN,
-    });
-
     try {
+      const { name } = c.req.param();
+
+      const cloudflare = new Cloudflare({
+        apiToken: c.env.CLOUDFLARE_API_TOKEN,
+      });
+
       const response = await cloudflare.r2.buckets.domains.custom.list(name, {
         account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
       });
 
-      return c.json({
-        data: response.domains || [],
-        message: 'Success',
-      });
+      return c.json(createSuccessResponse(response.domains || []));
     } catch (error) {
-      console.error('Error fetching custom domains:', error);
       if (error instanceof Cloudflare.APIError) {
-        return c.json(
-          {
-            data: [],
-            message: error.errors[0]?.message || 'Failed to fetch custom domains',
-          },
-          error.status || 500
-        );
+        throw new HTTPException(error.status || 400, {
+          message: error.errors[0]?.message || 'Failed to fetch custom domains',
+        });
       }
 
-      return c.json(
-        {
-          data: [],
-          message: 'Internal server error',
-        },
-        500
-      );
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
     }
   })
   .post(
     '/:name/file/:key/presigned-url',
     authMiddleware,
-    zValidator(
+    createValidator(
       'json',
       z.object({
         expiresInSeconds: z.number().min(1).max(604800), // 1 second to 7 days
       })
     ),
     async (c) => {
-      const { name, key } = c.req.param();
-      const { expiresInSeconds } = c.req.valid('json');
-
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-
       try {
+        const { name, key } = c.req.param();
+        const { expiresInSeconds } = c.req.valid('json');
+
+        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
         const presignedUrl = await generatePresignedUploadUrl(
           aws,
           c.env.CLOUDFLARE_ACCOUNT_ID,
@@ -574,63 +484,37 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           expiresInSeconds
         );
 
-        return c.json({
-          data: {
+        return c.json(
+          createSuccessResponse({
             presignedUrl,
             expiresInSeconds,
             expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
-          },
-          message: 'Success',
-        });
-      } catch (error) {
-        console.error('Error generating presigned URL:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Failed to generate presigned URL',
-          },
-          500
+          })
         );
+      } catch (error) {
+        throw new HTTPException(500, {
+          message: error instanceof Error ? error.message : 'Internal server error',
+        });
       }
     }
   )
   .post(
     '/:name/folder',
     authMiddleware,
-    zValidator('json', createFolderSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
-    zValidator('query', contentByPrefixSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
+    createValidator('json', createFolderSchema),
+    createValidator('query', contentByPrefixSchema),
     async (c) => {
-      const { name } = c.req.param();
-      const { folderName } = c.req.valid('json');
-      const prefix = c.req.query('prefix') || '';
-
-      // Construct the folder key with prefix and trailing slash
-      const folderKey = prefix ? `${prefix}${folderName}/` : `${folderName}/`;
-
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-      const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(folderKey)}`;
-
       try {
+        const { name } = c.req.param();
+        const { folderName } = c.req.valid('json');
+        const prefix = c.req.query('prefix') || '';
+
+        // Construct the folder key with prefix and trailing slash
+        const folderKey = prefix ? `${prefix}${folderName}/` : `${folderName}/`;
+
+        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+        const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(folderKey)}`;
+
         // Create an empty object to represent the folder
         const createResponse = await aws.fetch(url, {
           method: 'PUT',
@@ -652,61 +536,35 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           );
         }
 
-        return c.json({
-          data: {
+        return c.json(
+          createSuccessResponse({
             folderKey,
             folderName,
             bucketName: name,
             prefix,
-          },
-          message: 'Success',
-        });
-      } catch (error) {
-        console.error('Error creating folder:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Internal server error',
-          },
-          500
+          })
         );
+      } catch (error) {
+        throw new HTTPException(500, {
+          message: error instanceof Error ? error.message : 'Internal server error',
+        });
       }
     }
   )
   .post(
     '/:name/upload-url',
     authMiddleware,
-    zValidator('json', generateUploadUrlSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
-    zValidator('query', contentByPrefixSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
+    createValidator('json', generateUploadUrlSchema),
+    createValidator('query', contentByPrefixSchema),
     async (c) => {
-      const { name } = c.req.param();
-      const { fileName, fileSize, contentType } = c.req.valid('json');
-      const prefix = c.req.query('prefix') || '';
-
-      const fileKey = prefix ? `${prefix}${fileName}` : fileName;
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-
       try {
+        const { name } = c.req.param();
+        const { fileName, fileSize, contentType } = c.req.valid('json');
+        const prefix = c.req.query('prefix') || '';
+
+        const fileKey = prefix ? `${prefix}${fileName}` : fileName;
+        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
         const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}`;
         const urlObj = new URL(url);
         urlObj.searchParams.set('X-Amz-Expires', '7200'); // 2 hours expiry
@@ -739,51 +597,26 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           message: 'Success',
         });
       } catch (error) {
-        console.error('Error generating upload URL:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Failed to generate upload URL',
-          },
-          500
-        );
+        throw new HTTPException(500, {
+          message: error instanceof Error ? error.message : 'Internal server error',
+        });
       }
     }
   )
   .post(
     '/:name/multipart-upload',
     authMiddleware,
-    zValidator('json', multipartUploadSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
-    zValidator('query', contentByPrefixSchema, (result, c) => {
-      if (!result.success) {
-        return c.json(
-          {
-            data: null,
-            message: result.error.issues[0].message,
-          },
-          400
-        );
-      }
-    }),
+    createValidator('json', multipartUploadSchema),
+    createValidator('query', contentByPrefixSchema),
     async (c) => {
-      const { name } = c.req.param();
-      const { fileName, fileSize, contentType, partCount } = c.req.valid('json');
-      const prefix = c.req.query('prefix') || '';
-
-      const fileKey = prefix ? `${prefix}${fileName}` : fileName;
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-
       try {
+        const { name } = c.req.param();
+        const { fileName, fileSize, contentType, partCount } = c.req.valid('json');
+        const prefix = c.req.query('prefix') || '';
+
+        const fileKey = prefix ? `${prefix}${fileName}` : fileName;
+        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
         const uploadId = await initializeMultipartUpload(
           aws,
           c.env.CLOUDFLARE_ACCOUNT_ID,
@@ -815,21 +648,16 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           message: 'Success',
         });
       } catch (error) {
-        console.error('Error initializing multipart upload:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Failed to initialize multipart upload',
-          },
-          500
-        );
+        throw new HTTPException(500, {
+          message: error instanceof Error ? error.message : 'Internal server error',
+        });
       }
     }
   )
   .post(
     '/:name/complete-multipart',
     authMiddleware,
-    zValidator(
+    createValidator(
       'json',
       z.object({
         uploadId: z.string().min(1, 'Upload ID is required'),
@@ -842,26 +670,15 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
             })
           )
           .min(1, 'At least one part is required'),
-      }),
-      (result, c) => {
-        if (!result.success) {
-          return c.json(
-            {
-              data: null,
-              message: result.error.issues[0].message,
-            },
-            400
-          );
-        }
-      }
+      })
     ),
     async (c) => {
-      const { name } = c.req.param();
-      const { uploadId, fileKey, parts } = c.req.valid('json');
-
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-
       try {
+        const { name } = c.req.param();
+        const { uploadId, fileKey, parts } = c.req.valid('json');
+
+        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
         await completeMultipartUpload(
           aws,
           c.env.CLOUDFLARE_ACCOUNT_ID,
@@ -871,53 +688,31 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           parts
         );
 
-        return c.json({
-          data: {
-            fileKey,
-            bucketName: name,
-          },
-          message: 'Success',
-        });
+        return c.json(createSuccessResponse({ fileKey, bucketName: name }));
       } catch (error) {
-        console.error('Error completing multipart upload:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Failed to complete multipart upload',
-          },
-          500
-        );
+        throw new HTTPException(500, {
+          message: error instanceof Error ? error.message : 'Internal server error',
+        });
       }
     }
   )
   .post(
     '/:name/abort-multipart',
     authMiddleware,
-    zValidator(
+    createValidator(
       'json',
       z.object({
         uploadId: z.string().min(1, 'Upload ID is required'),
         fileKey: z.string().min(1, 'File key is required'),
-      }),
-      (result, c) => {
-        if (!result.success) {
-          return c.json(
-            {
-              data: null,
-              message: result.error.issues[0].message,
-            },
-            400
-          );
-        }
-      }
+      })
     ),
     async (c) => {
-      const { name } = c.req.param();
-      const { uploadId, fileKey } = c.req.valid('json');
-
-      const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
-
       try {
+        const { name } = c.req.param();
+        const { uploadId, fileKey } = c.req.valid('json');
+
+        const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+
         const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${name}/${encodeURIComponent(fileKey)}?uploadId=${uploadId}`;
 
         const abortResponse = await aws.fetch(url, {
@@ -935,23 +730,11 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           );
         }
 
-        return c.json({
-          data: {
-            uploadId,
-            fileKey,
-            bucketName: name,
-          },
-          message: 'Success',
-        });
+        return c.json(createSuccessResponse({ uploadId, fileKey, bucketName: name }));
       } catch (error) {
-        console.error('Error aborting multipart upload:', error);
-        return c.json(
-          {
-            data: null,
-            message: 'Internal server error',
-          },
-          500
-        );
+        throw new HTTPException(500, {
+          message: error instanceof Error ? error.message : 'Internal server error',
+        });
       }
     }
   );

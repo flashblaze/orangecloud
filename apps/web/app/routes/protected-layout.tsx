@@ -5,8 +5,8 @@ import { ProtectedContext } from '~/context/protected-context';
 import { createClient } from '~/utils/client';
 import type { Route } from './+types/protected-layout';
 
-export async function loader({ context, request }: Route.LoaderArgs) {
-  const client = createClient(request.headers, true, context.cloudflare.env.API_URL);
+export async function loader({ request }: Route.LoaderArgs) {
+  const client = createClient(request.headers, true);
   const response = await client.session.$get();
   const session = await response.json();
   if (!session) {
