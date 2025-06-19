@@ -9,6 +9,7 @@ import { errorHandler } from './middlewares/errorHandler';
 import sessionMiddleware from './middlewares/session';
 import bucketsRouter from './routes/buckets';
 import configRouter from './routes/config';
+import userRouter from './routes/user';
 import type { Env } from './types/hono-env.types';
 import { getCookieName, getCookieOptions } from './utils';
 import auth from './utils/auth';
@@ -54,6 +55,7 @@ app.use('*', sessionMiddleware);
 const routes = app
   .route('/buckets', bucketsRouter)
   .route('/config', configRouter)
+  .route('/user', userRouter)
   .all('/auth/*', (c) => auth(c.env).handler(c.req.raw))
   .get('/session', async (c) => {
     const session = await auth(c.env).api.getSession(c.req.raw);

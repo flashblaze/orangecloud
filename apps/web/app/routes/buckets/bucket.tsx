@@ -1,6 +1,6 @@
 import { ActionIcon, Card, Menu, SegmentedControl, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type ShouldRevalidateFunctionArgs,
   redirect,
@@ -13,8 +13,10 @@ import CreateFolderModal from '~/components/modules/bucket/CreateFolderModal';
 import FileItem from '~/components/modules/bucket/FileItem';
 import UploadProgress from '~/components/modules/bucket/UploadProgress';
 import { useEnv } from '~/context/env-context';
+import { useProtected } from '~/context/protected-context';
 import { useFileUpload } from '~/hooks/useFileUpload';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
+import useUpdateViewMode from '~/queries/user/useUpdateViewMode';
 import { cn } from '~/utils';
 import { createClient } from '~/utils/client';
 import IconPlus from '~icons/solar/add-circle-bold-duotone';
@@ -70,11 +72,22 @@ const Bucket = () => {
   const { name } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const prefix = searchParams.get('prefix') || '';
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const session = useProtected();
+
+  const initialViewMode = session.user.filesViewMode || 'list';
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [createFolderModalOpened, { open: openCreateFolderModal, close: closeCreateFolderModal }] =
     useDisclosure(false);
+
+  const updateViewMode = useUpdateViewMode({ apiUrl });
+
+  useEffect(() => {
+    const sessionViewMode = session.user.filesViewMode || 'list';
+    setViewMode(sessionViewMode);
+  }, [session.user.filesViewMode]);
 
   const bucketContentByName = useBucketContentByName({
     name,
@@ -114,6 +127,12 @@ const Bucket = () => {
 
   const handleNewFolder = () => {
     openCreateFolderModal();
+  };
+
+  const handleViewModeChange = (value: string) => {
+    const newViewMode = value as ViewMode;
+    setViewMode(newViewMode);
+    updateViewMode.mutate(newViewMode);
   };
 
   // Create skeleton items for loading state
@@ -198,7 +217,7 @@ const Bucket = () => {
                 <SegmentedControl
                   value={viewMode}
                   size="md"
-                  onChange={(value) => setViewMode(value as ViewMode)}
+                  onChange={handleViewModeChange}
                   data={[
                     {
                       value: 'list',
