@@ -186,7 +186,11 @@ const configRouter = new Hono<AuthHonoEnv>()
     try {
       const userId = getUserIdOrThrow(c);
       const db = createDb(c.env);
-      const userConfig = await getUserConfig(userId, c.env);
+      const userConfig = await db
+        .select()
+        .from(configTable)
+        .where(eq(configTable.userId, userId))
+        .get();
 
       const data = c.req.valid('json');
 
