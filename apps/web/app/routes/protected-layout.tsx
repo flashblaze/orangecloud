@@ -12,6 +12,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!session) {
     return redirect('/auth/login');
   }
+
+  const userConfigResponse = await client.config.$get();
+  const userConfig = await userConfigResponse.json();
+
+  if (!userConfig.data && !request.url.includes('/settings')) {
+    return redirect('/settings');
+  }
+
   return Response.json({ session });
 }
 

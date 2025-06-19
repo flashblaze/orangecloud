@@ -1,14 +1,14 @@
 import Cloudflare from 'cloudflare';
 import { XMLParser } from 'fast-xml-parser';
-import { type Context, Hono } from 'hono';
+import { Hono } from 'hono';
 import { z } from 'zod/v4';
 
 import { HTTPException } from 'hono/http-exception';
 import authMiddleware from '../middlewares/auth';
 import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
-import { createAwsClient } from '../utils';
-import { getUserConfig } from '../utils/getUserConfig';
+import { createAwsClient, getUserIdOrThrow } from '../utils';
+import { getUserConfig } from '../utils';
 import { createSuccessResponse } from '../utils/responses';
 import {
   completeMultipartUpload,
@@ -58,14 +58,6 @@ const multipartUploadSchema = z.object({
   contentType: z.string().optional(),
   partCount: z.number().min(1).max(10000),
 });
-
-const getUserIdOrThrow = (c: Context<AuthHonoEnv>) => {
-  const userId = c.get('user')?.id;
-  if (!userId) {
-    throw new HTTPException(401, { message: 'Unauthorized' });
-  }
-  return userId;
-};
 
 const bucketsRouter = new Hono<AuthHonoEnv>()
   .post('/', authMiddleware, createValidator('json', createBucketSchema), async (c) => {
