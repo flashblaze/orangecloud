@@ -1,12 +1,16 @@
 import { zValidator } from '@hono/zod-validator';
 import Cloudflare from 'cloudflare';
+import { eq } from 'drizzle-orm';
 import { XMLParser } from 'fast-xml-parser';
 import { Hono } from 'hono';
 import { z } from 'zod/v4';
 
+import createDb from '../db';
+import { configTable } from '../db/schema';
 import authMiddleware from '../middlewares/auth';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient } from '../utils';
+import { getUserConfig } from '../utils/getUserConfig';
 import {
   completeMultipartUpload,
   generateMultipartUploadUrls,
@@ -72,15 +76,37 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       }
     }),
     async (c) => {
+      const userId = c.get('user')?.id;
+      if (!userId) {
+        return c.json({ data: null, message: 'Unauthorized' }, 401);
+      }
+
+      const db = createDb(c.env);
+      const userConfig = await db
+        .select()
+        .from(configTable)
+        .where(eq(configTable.userId, userId))
+        .get();
+
+      if (!userConfig) {
+        return c.json(
+          {
+            data: null,
+            message: 'Please configure your Cloudflare settings first',
+          },
+          400
+        );
+      }
+
       const { name, locationHint, storageClass } = c.req.valid('json');
 
       const cloudflare = new Cloudflare({
-        apiToken: c.env.CLOUDFLARE_API_TOKEN,
+        apiToken: userConfig.cloudflareApiToken,
       });
 
       try {
         const response = await cloudflare.r2.buckets.create({
-          account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+          account_id: userConfig.cloudflareAccountId,
           name,
           locationHint,
           storageClass,
@@ -113,22 +139,45 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     }
   )
   .get('/', authMiddleware, async (c) => {
+    const userId = c.get('user')?.id;
+    if (!userId) {
+      return c.json({ data: null, message: 'Unauthorized' }, 401);
+    }
+
+    // Get user's config
+    const db = createDb(c.env);
+    const userConfig = await db
+      .select()
+      .from(configTable)
+      .where(eq(configTable.userId, userId))
+      .get();
+
+    if (!userConfig) {
+      return c.json(
+        {
+          data: [],
+          message: 'Please configure your Cloudflare settings first',
+        },
+        400
+      );
+    }
+
     const cloudflare = new Cloudflare({
-      apiToken: c.env.CLOUDFLARE_API_TOKEN,
+      apiToken: userConfig.cloudflareApiToken,
     });
 
     const response = await cloudflare.r2.buckets.list({
-      account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+      account_id: userConfig.cloudflareAccountId,
     });
 
     // Get size information for each bucket
-    const aws = createAwsClient(c.env.CLOUDFLARE_R2_ACCESS_KEY, c.env.CLOUDFLARE_R2_SECRET_KEY);
+    const aws = createAwsClient(userConfig.cloudflareR2AccessKey, userConfig.cloudflareR2SecretKey);
 
     const buckets = response.buckets || [];
     const bucketsWithSize = await Promise.all(
       buckets.map(async (bucket) => {
         try {
-          const url = `https://${c.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${bucket.name}?list-type=2`;
+          const url = `https://${userConfig.cloudflareAccountId}.r2.cloudflarestorage.com/${bucket.name}?list-type=2`;
           const bucketContent = await aws.fetch(url, { method: 'GET' });
 
           if (bucketContent.ok) {
@@ -180,13 +229,20 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     });
   })
   .get('/metrics', authMiddleware, async (c) => {
-    const cloudflare = new Cloudflare({
-      apiToken: c.env.CLOUDFLARE_API_TOKEN,
-    });
+    const userId = c.get('user')?.id;
+    if (!userId) {
+      return c.json({ data: null, message: 'Unauthorized' }, 401);
+    }
 
     try {
+      const userConfig = await getUserConfig(userId, c.env);
+
+      const cloudflare = new Cloudflare({
+        apiToken: userConfig.cloudflareApiToken,
+      });
+
       const metrics = await cloudflare.r2.buckets.metrics.list({
-        account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+        account_id: userConfig.cloudflareAccountId,
       });
 
       return c.json({
@@ -198,21 +254,29 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       return c.json(
         {
           data: null,
-          message: 'Failed to fetch metrics',
+          message: error instanceof Error ? error.message : 'Failed to fetch metrics',
         },
         500
       );
     }
   })
   .get('/:name/exists', authMiddleware, async (c) => {
+    const userId = c.get('user')?.id;
+    if (!userId) {
+      return c.json({ data: null, message: 'Unauthorized' }, 401);
+    }
+
     const { name } = c.req.param();
-    const cloudflare = new Cloudflare({
-      apiToken: c.env.CLOUDFLARE_API_TOKEN,
-    });
 
     try {
+      const userConfig = await getUserConfig(userId, c.env);
+
+      const cloudflare = new Cloudflare({
+        apiToken: userConfig.cloudflareApiToken,
+      });
+
       await cloudflare.r2.buckets.get(name, {
-        account_id: c.env.CLOUDFLARE_ACCOUNT_ID,
+        account_id: userConfig.cloudflareAccountId,
       });
     } catch (error) {
       if (error instanceof Cloudflare.APIError) {
@@ -222,6 +286,15 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
             message: 'Bucket not found',
           },
           404
+        );
+      }
+      if (error instanceof Error && error.message.includes('configure')) {
+        return c.json(
+          {
+            data: null,
+            message: error.message,
+          },
+          400
         );
       }
     }

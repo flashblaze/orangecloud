@@ -1,4 +1,12 @@
-import { AppShell, Avatar, Burger, Button, Menu, useMantineColorScheme } from '@mantine/core';
+import {
+  ActionIcon,
+  AppShell,
+  Avatar,
+  Burger,
+  Button,
+  Menu,
+  useMantineColorScheme,
+} from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
@@ -14,6 +22,7 @@ import IconSolarHome from '~icons/solar/home-smile-angle-broken';
 import IconLaptop from '~icons/solar/laptop-bold-duotone';
 import IconLogout from '~icons/solar/logout-3-bold-duotone';
 import IconMoon from '~icons/solar/moon-bold-duotone';
+import IconSettings from '~icons/solar/settings-bold-duotone';
 import IconSun from '~icons/solar/sun-2-bold-duotone';
 import CreateBucketModal from '../modules/bucket/CreateBucketModal';
 
@@ -180,7 +189,14 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
             </div>
           </Link>
         </div>
-        <UserMenu />
+        <div className="flex items-center gap-2">
+          <Link to="/settings">
+            <ActionIcon variant="subtle" size="lg">
+              <IconSettings className="h-5 w-5" />
+            </ActionIcon>
+          </Link>
+          <UserMenu />
+        </div>
       </AppShell.Header>
       <AppShell.Navbar p="md">
         <AppShell.Section grow>
