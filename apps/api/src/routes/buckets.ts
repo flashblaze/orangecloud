@@ -10,6 +10,7 @@ import { configTable } from '../db/schema';
 import authMiddleware from '../middlewares/auth';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient } from '../utils';
+import {} from '../utils/errors';
 import { getUserConfig } from '../utils/getUserConfig';
 import {
   completeMultipartUpload,

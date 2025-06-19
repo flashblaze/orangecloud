@@ -3,15 +3,20 @@ import { Hono } from 'hono';
 import { deleteCookie, getCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { csrf } from 'hono/csrf';
+import { HTTPException } from 'hono/http-exception';
 
+import { errorHandler } from './middlewares/errorHandler';
 import sessionMiddleware from './middlewares/session';
 import bucketsRouter from './routes/buckets';
 import configRouter from './routes/config';
 import type { Env } from './types/hono-env.types';
 import { getCookieName, getCookieOptions } from './utils';
 import auth from './utils/auth';
+import { logger } from './utils/logger';
 
 const app = new Hono<Env>();
+
+app.onError(errorHandler);
 
 app.use(
   cloudflareRateLimiter<Env>({
@@ -20,19 +25,15 @@ app.use(
       try {
         const cookieData = JSON.parse(getCookie(c, getCookieName(c.env.ENVIRONMENT)) ?? '{}');
         return cookieData.userId ?? c.req.header('CF-Connecting-IP') ?? '';
-      } catch (_err) {
+      } catch (err) {
+        logger.warn('Invalid cookie format', { error: err });
         deleteCookie(c, getCookieName(c.env.ENVIRONMENT), getCookieOptions(c.env.ENVIRONMENT));
-        return c.json({ message: 'Unauthorized' }, 401);
+        throw new HTTPException(401, { message: 'Unauthorized' });
       }
     },
     handler: (c) => {
       deleteCookie(c, getCookieName(c.env.ENVIRONMENT), getCookieOptions(c.env.ENVIRONMENT));
-      return c.json(
-        {
-          message: 'Rate limit exceeded',
-        },
-        429
-      );
+      throw new HTTPException(429, { message: 'Rate limit exceeded' });
     },
   }),
   (c, next) => {

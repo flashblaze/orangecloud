@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import { HTTPException } from 'hono/http-exception';
 
 import createDb from '../db';
 import { configTable } from '../db/schema';
@@ -13,7 +14,7 @@ export async function getUserConfig(userId: string, env: Env['Bindings']) {
     .get();
 
   if (!userConfig) {
-    throw new Error('Please configure your Cloudflare settings first');
+    throw new HTTPException(400, { message: 'Please configure your Cloudflare settings first' });
   }
 
   return userConfig;
