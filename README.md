@@ -1,4 +1,4 @@
-# 🍊 OrangeCloud
+# ⛅ OrangeCloud
 
 > **A beautiful, open-source alternative UI for your Cloudflare R2 buckets**
 
