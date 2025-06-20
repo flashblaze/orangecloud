@@ -196,13 +196,11 @@ const configRouter = new Hono<AuthHonoEnv>()
 
       if (userConfig) {
         await db.update(configTable).set(data).where(eq(configTable.userId, userId));
-        logger.info('Config updated', { userId });
       } else {
         await db.insert(configTable).values({
           ...data,
           userId,
         });
-        logger.info('Config created', { userId });
       }
 
       const responseData = {

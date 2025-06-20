@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
   "vcs": {
     "enabled": false,
     "clientKind": "git",
@@ -7,20 +7,21 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": [
-      "node_modules/*",
-      "*.json",
-      "tsconfig.json",
-      ".turbo",
-      "**/dist",
-      "**/out",
-      ".wrangler",
-      ".react-router/**",
-      "worker-configuration.d.ts",
-      "routeTree.gen.ts",
-      "bun.lock",
-      "*.astro",
-      "build/**"
+    "includes": [
+      "**",
+      "!**/node_modules/**/*",
+      "!**/*.json",
+      "!**/tsconfig.json",
+      "!**/.turbo",
+      "!**/dist",
+      "!**/out",
+      "!**/.wrangler",
+      "!**/.react-router/**",
+      "!**/worker-configuration.d.ts",
+      "!**/routeTree.gen.ts",
+      "!**/bun.lock",
+      "!**/*.astro",
+      "!**/build/**"
     ]
   },
   "formatter": {
@@ -34,70 +35,24 @@
     "attributePosition": "auto",
     "bracketSpacing": true
   },
-  "organizeImports": {
-    "enabled": true
-  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "complexity": {
-        "noExtraBooleanCast": "error",
-        "noMultipleSpacesInRegularExpressionLiterals": "error",
-        "noUselessCatch": "error",
-        "noWith": "error"
+        "noUselessCatch": "error"
       },
       "correctness": {
-        "noConstAssign": "error",
-        "noConstantCondition": "error",
-        "noEmptyCharacterClassInRegex": "error",
-        "noEmptyPattern": "error",
-        "noGlobalObjectCalls": "error",
-        "noInnerDeclarations": "error",
-        "noInvalidConstructorSuper": "error",
-        "noNewSymbol": "error",
-        "noNonoctalDecimalEscape": "error",
-        "noPrecisionLoss": "error",
         "noUnusedImports": "warn",
-        "noSelfAssign": "error",
-        "noSetterReturn": "error",
-        "noSwitchDeclarations": "error",
-        "noUnreachable": "error",
-        "noUnreachableSuper": "error",
-        "noUnsafeFinally": "error",
-        "noUnsafeOptionalChaining": "error",
         "noUnusedLabels": "error",
-        "noUnusedVariables": "error",
-        "useIsNan": "error",
-        "useValidForDirection": "error",
-        "useYield": "error"
+        "noUnusedVariables": "error"
       },
       "suspicious": {
         "noConsole": "off",
         "noExplicitAny": "warn",
-        "noAssignInExpressions": "error",
-        "noAsyncPromiseExecutor": "error",
         "noCatchAssign": "error",
-        "noClassAssign": "error",
-        "noCompareNegZero": "error",
-        "noControlCharactersInRegex": "error",
-        "noDebugger": "error",
-        "noDuplicateCase": "error",
-        "noDuplicateClassMembers": "error",
-        "noDuplicateObjectKeys": "error",
-        "noDuplicateParameters": "error",
         "noEmptyBlockStatements": "error",
-        "noFallthroughSwitchClause": "error",
-        "noFunctionAssign": "error",
-        "noGlobalAssign": "error",
-        "noImportAssign": "error",
-        "noMisleadingCharacterClass": "error",
-        "noPrototypeBuiltins": "error",
-        "noRedeclare": "error",
-        "noShadowRestrictedNames": "error",
-        "noSparseArray": "error",
-        "noUnsafeNegation": "error",
-        "useGetterReturn": "error",
-        "useValidTypeof": "error"
+        "noPrototypeBuiltins": "error"
       },
       "recommended": true,
       "nursery": {
@@ -109,6 +64,18 @@
             "functions": ["cn"]
           }
         }
+      },
+      "style": {
+        "noParameterAssign": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error"
       }
     }
   },
@@ -127,12 +94,12 @@
   },
   "overrides": [
     {
-      "include": ["**/*.{ts,tsx}"],
+      "includes": ["**/*.{ts,tsx}"],
       "linter": { "rules": { "correctness": { "noEmptyPattern": "warn" } } }
     },
-    { "include": ["**/*.{js,jsx,ts,tsx}"] },
+    { "includes": ["**/*.{js,jsx,ts,tsx}"] },
     {
-      "include": ["**/*.{ts,tsx}"],
+      "includes": ["**/*.{ts,tsx}"],
       "linter": { "rules": { "correctness": { "noEmptyPattern": "warn" } } }
     }
   ]

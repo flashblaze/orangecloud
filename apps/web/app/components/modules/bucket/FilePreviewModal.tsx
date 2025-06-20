@@ -27,9 +27,7 @@ const FilePreviewModal = ({
 }: FilePreviewModalProps) => {
   const { apiUrl } = useEnv();
 
-  if (!file) return null;
-
-  const previewType = getPreviewType(file.name);
+  const previewType = getPreviewType(file?.name || '');
 
   // Use appropriate hook based on file type
   const fileContent = useFileContent({
@@ -80,7 +78,7 @@ const FilePreviewModal = ({
       return (
         <img
           src={data as string}
-          alt={file.name}
+          alt={file?.name || ''}
           className="max-h-[70vh] max-w-full object-contain"
         />
       );
@@ -115,7 +113,7 @@ const FilePreviewModal = ({
     if (previewType === 'pdf') {
       return (
         <div className="w-full max-w-4xl">
-          <PdfViewer fileKey={file.key} bucketName={bucketName} apiUrl={apiUrl} />
+          <PdfViewer fileKey={file?.key || ''} bucketName={bucketName} apiUrl={apiUrl} />
         </div>
       );
     }
@@ -140,7 +138,7 @@ const FilePreviewModal = ({
     <Modal
       opened={opened}
       onClose={onClose}
-      title={file.name}
+      title={file?.name || ''}
       size={previewType === 'pdf' ? 'xl' : 'auto'}
       centered
       classNames={{
