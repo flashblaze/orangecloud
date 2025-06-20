@@ -2,8 +2,8 @@ import { ActionIcon, Card, Menu, SegmentedControl, Tooltip } from '@mantine/core
 import { useDisclosure } from '@mantine/hooks';
 import { useEffect, useRef, useState } from 'react';
 import {
-  type ShouldRevalidateFunctionArgs,
   redirect,
+  type ShouldRevalidateFunctionArgs,
   useLoaderData,
   useSearchParams,
 } from 'react-router';
@@ -19,12 +19,12 @@ import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import useUpdateViewMode from '~/queries/user/useUpdateViewMode';
 import { cn } from '~/utils';
 import { createClient } from '~/utils/client';
-import IconPlus from '~icons/solar/add-circle-bold-duotone';
+import IconPlus from '~icons/solar/add-circle-broken';
 import IconChecklist from '~icons/solar/checklist-bold-duotone';
-import IconFile from '~icons/solar/file-bold-duotone';
-import IconFolder from '~icons/solar/folder-bold-duotone';
-import IconFolderOpen from '~icons/solar/folder-open-bold-duotone';
-import IconUpload from '~icons/solar/upload-bold-duotone';
+import IconFile from '~icons/solar/file-broken';
+import IconFolder from '~icons/solar/folder-broken';
+import IconFolderOpen from '~icons/solar/folder-open-broken';
+import IconUpload from '~icons/solar/upload-broken';
 import IconGrid from '~icons/solar/widget-4-bold-duotone';
 import type { Route } from './+types/bucket';
 

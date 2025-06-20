@@ -220,6 +220,7 @@ export const simpleUpload = async ({
       },
       body: JSON.stringify(uploadBody),
       signal,
+      credentials: 'include',
     }
   );
   const { uploadUrl } = data as UploadSimpleFileResponse;
@@ -332,6 +333,7 @@ export const multipartUpload = async ({
           partCount,
         }),
         signal,
+        credentials: 'include',
       }
     );
 
@@ -441,6 +443,7 @@ export const multipartUpload = async ({
         parts: uploadedParts.sort((a, b) => a.partNumber - b.partNumber),
       }),
       signal,
+      credentials: 'include',
     });
 
     console.log(`[${fileName}] Completed multipart upload successfully`);
@@ -462,6 +465,7 @@ export const multipartUpload = async ({
               uploadId,
               fileKey,
             }),
+            credentials: 'include',
           },
           true,
           0 // No retries for abort

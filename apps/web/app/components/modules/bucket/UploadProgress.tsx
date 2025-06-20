@@ -3,10 +3,10 @@ import { useState } from 'react';
 
 import type { UploadFile } from '~/utils/upload';
 import { formatFileSize, formatTimeRemaining, formatUploadSpeed } from '~/utils/upload';
-import IconChevronDown from '~icons/solar/alt-arrow-down-bold-duotone';
-import IconChevronUp from '~icons/solar/alt-arrow-up-bold-duotone';
-import IconCheck from '~icons/solar/check-circle-bold-duotone';
-import IconX from '~icons/solar/close-circle-bold-duotone';
+import IconChevronDown from '~icons/solar/alt-arrow-down-broken';
+import IconChevronUp from '~icons/solar/alt-arrow-up-broken';
+import IconCheck from '~icons/solar/check-circle-broken';
+import IconX from '~icons/solar/close-circle-broken';
 
 interface UploadProgressProps {
   uploads: UploadFile[];
@@ -72,7 +72,7 @@ export default function UploadProgress({
   };
 
   return (
-    <div className="fixed right-0 bottom-0 left-0 z-50 border-gray-200 border-t bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
+    <div className="fixed right-0 bottom-0 left-0 z-999 border-gray-200 border-t bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
       {/* Header */}
       <div className="flex flex-col gap-3 border-gray-200 border-b bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center gap-3">

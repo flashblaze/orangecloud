@@ -134,6 +134,7 @@ export const useFileUpload = ({
                 uploadId: upload.uploadId,
                 fileKey: upload.fileKey,
               }),
+              credentials: 'include',
             });
           } catch (error) {
             console.error('Failed to abort multipart upload:', error);
@@ -164,6 +165,7 @@ export const useFileUpload = ({
                 uploadId: upload.uploadId,
                 fileKey: upload.fileKey,
               }),
+              credentials: 'include',
             });
           } catch (error) {
             console.error('Failed to abort multipart upload:', error);
