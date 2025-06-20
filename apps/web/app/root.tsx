@@ -7,12 +7,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { parse } from 'cookie-es';
 import {
+  isRouteErrorResponse,
   Links,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
-  isRouteErrorResponse,
   useLoaderData,
 } from 'react-router';
 
@@ -109,6 +109,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for SSR theme sync
           dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
+        <script
+          type="text/javascript"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Required for analytics
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(c,l,a,r,i,t,y){
+                  c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "s2beck4a6l");
+            `,
+          }}
         />
       </head>
       <body>

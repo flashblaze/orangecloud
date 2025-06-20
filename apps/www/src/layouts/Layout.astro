@@ -1,0 +1,56 @@
+---
+import Head from "../components/Head.astro";
+import "../styles/global.css";
+
+export interface Props {
+	docTitle?: string;
+	docDescription?: string;
+	docOgUrl?: string;
+	docOgImage?: string;
+	docOgImageAlt?: string;
+}
+
+const { docTitle, docDescription, docOgUrl, docOgImage, docOgImageAlt } =
+	Astro.props as Props;
+---
+
+<!doctype html>
+<html lang="en">
+	<Head
+		docTitle={docTitle}
+		docDescription={docDescription}
+		docOgUrl={docOgUrl}
+		docOgImage={docOgImage}
+		docOgImageAlt={docOgImageAlt}
+	/>
+	<body>
+		<main class="min-h-screen w-full bg-[#f8fafc] relative">
+			{/* Top Fade Grid Background */}
+			<div
+				class="absolute inset-0 z-0"
+				style={{
+					backgroundImage: `
+				  linear-gradient(to right, #e2e8f0 1px, transparent 1px),
+				  linear-gradient(to bottom, #e2e8f0 1px, transparent 1px)
+				`,
+					backgroundSize: "20px 30px",
+					WebkitMaskImage:
+						"radial-gradient(ellipse 70% 60% at 50% 0%, #000 60%, transparent 100%)",
+					maskImage:
+						"radial-gradient(ellipse 70% 60% at 50% 0%, #000 60%, transparent 100%)",
+				}}
+			>
+			</div>
+			<slot />
+		</main>
+	</body>
+</html>
+
+<style>
+	html,
+	body {
+		margin: 0;
+		width: 100%;
+		height: 100%;
+	}
+</style>

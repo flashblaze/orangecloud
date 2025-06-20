@@ -6,6 +6,7 @@ on:
     paths:
     - "apps/web/**"
     - "apps/api/**"
+    - "apps/www/**"
     - ".github/workflows/workflow.yml"
     - "bun.lock"
 
@@ -16,6 +17,7 @@ jobs:
       web_changed: ${{ steps.changed-files.outputs.web_any_changed }}
       api_changed: ${{ steps.changed-files.outputs.api_any_changed }}
       lockfile_changed: ${{ steps.changed-files.outputs.lockfile_any_changed }}
+      www_changed: ${{ steps.changed-files.outputs.www_any_changed }}
       workflow_changed: ${{ steps.changed-files.outputs.workflow_any_changed }}
     steps:
     - uses: actions/checkout@v4
@@ -33,6 +35,8 @@ jobs:
             - 'apps/api/**'
           lockfile:
             - 'bun.lock'
+          www:
+            - 'apps/www/**'
           workflow:
             - '.github/workflows/workflow.yml'
         json: true
@@ -106,3 +110,35 @@ jobs:
         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         workingDirectory: apps/api
         command: d1 migrations apply ORANGECLOUD_DB --remote ${{ github.ref == 'refs/heads/dev' && '--env dev' || '' }}
+
+  deploy-www:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.www_changed == 'true' || needs.detect-changes.outputs.lockfile_changed == 'true' || needs.detect-changes.outputs.workflow_changed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22.14.0"
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      run: bun install
+
+    - name: Build WWW
+      run: bun run --cwd apps/www build
+
+    - name: Deploy WWW to Cloudflare
+      uses: cloudflare/wrangler-action@v3
+      with:
+        apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        workingDirectory: apps/www
+        command: pages deploy dist --project-name=orangecloud-www
