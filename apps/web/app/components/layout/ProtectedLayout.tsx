@@ -1,12 +1,4 @@
-import {
-  ActionIcon,
-  AppShell,
-  Avatar,
-  Burger,
-  Button,
-  Menu,
-  useMantineColorScheme,
-} from '@mantine/core';
+import { AppShell, Avatar, Burger, Button, Menu, useMantineColorScheme } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'framer-motion';
 import { useState } from 'react';
@@ -16,14 +8,14 @@ import { useEnv } from '~/context/env-context';
 import { useProtected } from '~/context/protected-context';
 import useLogout from '~/queries/auth/useLogout';
 import { cn } from '~/utils';
-import IconPlus from '~icons/solar/add-circle-bold-duotone';
+import IconPlus from '~icons/solar/add-circle-broken';
 import IconSolarHomeBold from '~icons/solar/home-smile-angle-bold-duotone';
 import IconSolarHome from '~icons/solar/home-smile-angle-broken';
-import IconLaptop from '~icons/solar/laptop-bold-duotone';
-import IconLogout from '~icons/solar/logout-3-bold-duotone';
-import IconMoon from '~icons/solar/moon-bold-duotone';
-import IconSettings from '~icons/solar/settings-bold-duotone';
-import IconSun from '~icons/solar/sun-2-bold-duotone';
+import IconLaptop from '~icons/solar/laptop-broken';
+import IconLogout from '~icons/solar/logout-3-broken';
+import IconMoon from '~icons/solar/moon-broken';
+import IconSettings from '~icons/solar/settings-broken';
+import IconSun from '~icons/solar/sun-2-broken';
 import CreateBucketModal from '../modules/bucket/CreateBucketModal';
 
 interface ProtectedLayoutProps {
@@ -149,6 +141,13 @@ const UserMenu = () => {
           </Menu.Sub.Dropdown>
         </Menu.Sub>
         <Menu.Item
+          leftSection={<IconSettings width={16} height={16} />}
+          component={Link}
+          to="/settings"
+        >
+          Settings
+        </Menu.Item>
+        <Menu.Item
           leftSection={<IconLogout width={16} height={16} />}
           color="red"
           onClick={handleLogout}
@@ -175,8 +174,8 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
       padding="md"
       classNames={{
         main: 'bg-white min-h-screen dark:bg-zinc-800',
-        navbar: 'bg-gray-50 dark:bg-zinc-900 border-r-0',
-        header: 'bg-gray-50 dark:bg-zinc-900 border-b-0',
+        navbar: 'bg-gray-50 dark:bg-zinc-900',
+        header: 'bg-gray-50 dark:bg-zinc-900',
       }}
     >
       <AppShell.Header p="md" className="flex items-center justify-between">
@@ -189,14 +188,7 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
             </div>
           </Link>
         </div>
-        <div className="flex items-center gap-2">
-          <Link to="/settings">
-            <ActionIcon variant="subtle" size="lg">
-              <IconSettings className="h-5 w-5" />
-            </ActionIcon>
-          </Link>
-          <UserMenu />
-        </div>
+        <UserMenu />
       </AppShell.Header>
       <AppShell.Navbar p="md">
         <AppShell.Section grow>
@@ -204,6 +196,7 @@ const ProtectedLayout = ({ children }: ProtectedLayoutProps) => {
             variant="default"
             onClick={() => setCreateBucketModalOpened(true)}
             leftSection={<IconPlus className="h-5 w-5" />}
+            fullWidth
           >
             New
           </Button>

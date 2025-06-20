@@ -218,6 +218,18 @@ const configRouter = new Hono<AuthHonoEnv>()
         message: error instanceof Error ? error.message : 'Internal server error',
       });
     }
+  })
+  .delete('/', authMiddleware, async (c) => {
+    try {
+      const userId = getUserIdOrThrow(c);
+      const db = createDb(c.env);
+      await db.delete(configTable).where(eq(configTable.userId, userId));
+      return c.json(createSuccessResponse(null, 'Configuration deleted successfully'));
+    } catch (error) {
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
+      });
+    }
   });
 
 export default configRouter;
