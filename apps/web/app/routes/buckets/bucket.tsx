@@ -271,7 +271,7 @@ const Bucket = () => {
           ) : (
             <Card
               padding="xl"
-              className="border border-card-border text-center hover:bg-card-background!"
+              className="mt-5 border border-card-border text-center hover:bg-card-background!"
             >
               <div className="flex flex-col items-center gap-4">
                 <IconFolderOpen className="h-12 w-12 text-gray-400 dark:text-gray-500" />

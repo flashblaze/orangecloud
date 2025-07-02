@@ -8,6 +8,7 @@ import authMiddleware from '../middlewares/auth';
 import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
 import { createAwsClient, getUserConfig, getUserIdOrThrow } from '../utils';
+import { ensureBucketCors } from '../utils/cors';
 import { createSuccessResponse } from '../utils/responses';
 import {
   completeMultipartUpload,
@@ -567,6 +568,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         const { fileName, fileSize, contentType } = c.req.valid('json');
         const prefix = c.req.query('prefix') || '';
 
+        // Check and configure CORS before generating upload URL
+        const corsResult = await ensureBucketCors(name, userConfig, c.env);
+
         const fileKey = prefix ? `${prefix}${fileName}` : fileName;
         const aws = createAwsClient(
           userConfig.cloudflareR2AccessKey,
@@ -601,8 +605,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
             fileSize,
             bucketName: name,
             prefix,
+            cors: corsResult,
           },
-          message: 'Success',
+          message: 'Upload URL generated successfully',
         });
       } catch (error) {
         throw new HTTPException(500, {
@@ -624,6 +629,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         const { name } = c.req.param();
         const { fileName, fileSize, contentType, partCount } = c.req.valid('json');
         const prefix = c.req.query('prefix') || '';
+
+        // Check and configure CORS before generating multipart upload URLs
+        const corsResult = await ensureBucketCors(name, userConfig, c.env);
 
         const fileKey = prefix ? `${prefix}${fileName}` : fileName;
         const aws = createAwsClient(
@@ -658,8 +666,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
             partUrls,
             bucketName: name,
             prefix,
+            cors: corsResult,
           },
-          message: 'Success',
+          message: 'Multipart upload initialized successfully',
         });
       } catch (error) {
         throw new HTTPException(500, {
