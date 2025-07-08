@@ -1,10 +1,12 @@
 import { Card } from '@mantine/core';
-import { Link, redirect } from 'react-router';
-
 import { notifications } from '@mantine/notifications';
+import { serialize } from 'cookie-es';
 import { useEffect } from 'react';
+import { Link, redirect, useNavigate } from 'react-router';
+import { createCookieOptions } from '~/components/modules/settings/SavePassphraseInBrowser';
 import { formatFileSize } from '~/utils';
 import { createClient } from '~/utils/client';
+import { PASSPHRASE_KEY } from '~/utils/constants';
 import IconDatabase from '~icons/solar/database-bold-duotone';
 import IconFlashDrive from '~icons/solar/flash-drive-bold-duotone';
 import IconTransfer from '~icons/solar/transfer-horizontal-bold-duotone';
@@ -57,6 +59,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 const Home = ({ loaderData }: Route.ComponentProps) => {
   const metrics = loaderData.metrics;
+  const navigate = useNavigate();
 
   // Calculate total storage
   const totalStorage = metrics
@@ -73,8 +76,12 @@ const Home = ({ loaderData }: Route.ComponentProps) => {
         message: loaderData.message,
         color: 'red',
       });
+      if (loaderData.message.includes('Invalid passphrase')) {
+        document.cookie = serialize(PASSPHRASE_KEY, '', createCookieOptions(0));
+        navigate('/settings');
+      }
     }
-  }, [loaderData.message]);
+  }, [loaderData.message, navigate]);
 
   return (
     <section>

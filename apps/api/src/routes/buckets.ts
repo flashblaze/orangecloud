@@ -7,8 +7,14 @@ import { z } from 'zod/v4';
 import authMiddleware from '../middlewares/auth';
 import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv, BucketContent, FileSystemItem } from '../types';
-import { createAwsClient, getUserConfig, getUserIdOrThrow } from '../utils';
+import {
+  createAwsClient,
+  getPassphraseFromCookie,
+  getUserConfig,
+  getUserIdOrThrow,
+} from '../utils';
 import { ensureBucketCors } from '../utils/cors';
+import { logger } from '../utils/logger';
 import { createSuccessResponse } from '../utils/responses';
 import {
   completeMultipartUpload,
@@ -63,13 +69,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .post('/', authMiddleware, createValidator('json', createBucketSchema), async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
-
-      if (!userConfig) {
-        throw new HTTPException(400, {
-          message: 'Please configure your Cloudflare settings first',
-        });
-      }
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const { name, locationHint, storageClass } = c.req.valid('json');
 
@@ -100,13 +101,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/', authMiddleware, async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
-
-      if (!userConfig) {
-        throw new HTTPException(400, {
-          message: 'Please configure your Cloudflare settings first',
-        });
-      }
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const cloudflare = new Cloudflare({
         apiToken: userConfig.cloudflareApiToken,
@@ -161,7 +157,7 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
               };
             }
           } catch (error) {
-            console.error(`Error fetching size for bucket ${bucket.name}:`, error);
+            logger.error(`Error fetching size for bucket ${bucket.name}:`, error);
           }
 
           return {
@@ -188,7 +184,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/metrics', authMiddleware, async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const cloudflare = new Cloudflare({
         apiToken: userConfig.cloudflareApiToken,
@@ -214,7 +211,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/:name/exists', authMiddleware, async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const { name } = c.req.param();
 
@@ -240,7 +238,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/:name', authMiddleware, createValidator('query', contentByPrefixSchema), async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const { name } = c.req.param();
       const prefix = c.req.query('prefix') || '';
@@ -261,13 +260,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       });
 
       if (!bucketContent.ok) {
-        return c.json(
-          {
-            data: null,
-            message: 'Bucket content not found',
-          },
-          404
-        );
+        throw new HTTPException(404, {
+          message: 'Bucket content not found',
+        });
       }
 
       const bucketContentText = await bucketContent.text();
@@ -337,7 +332,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/:name/file/:key', authMiddleware, createValidator('param', fileSchema), async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const { name, key } = c.req.param();
 
@@ -352,14 +348,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
       });
 
       if (!fileResponse.ok) {
-        console.error(`File not found: ${fileResponse.status}`);
-        return c.json(
-          {
-            data: null,
-            message: 'File not found',
-          },
-          404
-        );
+        throw new HTTPException(404, {
+          message: 'File not found',
+        });
       }
 
       // Add this critical fix - read the body completely before returning
@@ -381,7 +372,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .delete('/:name/file/:key', authMiddleware, createValidator('param', fileSchema), async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const { name, key } = c.req.param();
 
@@ -397,23 +389,14 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
 
       if (!deleteResponse.ok) {
         if (deleteResponse.status === 404) {
-          return c.json(
-            {
-              data: null,
-              message: 'File not found',
-            },
-            404
-          );
+          throw new HTTPException(404, {
+            message: 'File not found',
+          });
         }
 
-        console.error(`Failed to delete file: ${deleteResponse.status}`);
-        return c.json(
-          {
-            data: null,
-            message: 'Failed to delete file',
-          },
-          500
-        );
+        throw new HTTPException(500, {
+          message: 'Failed to delete file',
+        });
       }
 
       return c.json(createSuccessResponse({ key, bucketName: name }));
@@ -426,7 +409,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
   .get('/:name/domains', authMiddleware, async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       const { name } = c.req.param();
 
@@ -463,7 +447,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     async (c) => {
       try {
         const userId = getUserIdOrThrow(c);
-        const userConfig = await getUserConfig(userId, c.env);
+        const passphrase = getPassphraseFromCookie(c);
+        const userConfig = await getUserConfig(userId, c.env, passphrase);
 
         const { name, key } = c.req.param();
         const { expiresInSeconds } = c.req.valid('json');
@@ -503,7 +488,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     async (c) => {
       try {
         const userId = getUserIdOrThrow(c);
-        const userConfig = await getUserConfig(userId, c.env);
+        const passphrase = getPassphraseFromCookie(c);
+        const userConfig = await getUserConfig(userId, c.env, passphrase);
 
         const { name } = c.req.param();
         const { folderName } = c.req.valid('json');
@@ -529,14 +515,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         });
 
         if (!createResponse.ok) {
-          console.error(`Failed to create folder: ${createResponse.status}`);
-          return c.json(
-            {
-              data: null,
-              message: 'Failed to create folder',
-            },
-            500
-          );
+          throw new HTTPException(500, {
+            message: 'Failed to create folder',
+          });
         }
 
         return c.json(
@@ -562,7 +543,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     async (c) => {
       try {
         const userId = getUserIdOrThrow(c);
-        const userConfig = await getUserConfig(userId, c.env);
+        const passphrase = getPassphraseFromCookie(c);
+        const userConfig = await getUserConfig(userId, c.env, passphrase);
 
         const { name } = c.req.param();
         const { fileName, fileSize, contentType } = c.req.valid('json');
@@ -597,8 +579,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           },
         });
 
-        return c.json({
-          data: {
+        return c.json(
+          createSuccessResponse({
             uploadUrl: signedUrl.url,
             fileKey,
             fileName,
@@ -606,9 +588,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
             bucketName: name,
             prefix,
             cors: corsResult,
-          },
-          message: 'Upload URL generated successfully',
-        });
+          })
+        );
       } catch (error) {
         throw new HTTPException(500, {
           message: error instanceof Error ? error.message : 'Internal server error',
@@ -624,7 +605,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     async (c) => {
       try {
         const userId = getUserIdOrThrow(c);
-        const userConfig = await getUserConfig(userId, c.env);
+        const passphrase = getPassphraseFromCookie(c);
+        const userConfig = await getUserConfig(userId, c.env, passphrase);
 
         const { name } = c.req.param();
         const { fileName, fileSize, contentType, partCount } = c.req.valid('json');
@@ -656,8 +638,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
           partCount
         );
 
-        return c.json({
-          data: {
+        return c.json(
+          createSuccessResponse({
             uploadId,
             fileKey,
             fileName,
@@ -667,9 +649,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
             bucketName: name,
             prefix,
             cors: corsResult,
-          },
-          message: 'Multipart upload initialized successfully',
-        });
+          })
+        );
       } catch (error) {
         throw new HTTPException(500, {
           message: error instanceof Error ? error.message : 'Internal server error',
@@ -698,7 +679,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     async (c) => {
       try {
         const userId = getUserIdOrThrow(c);
-        const userConfig = await getUserConfig(userId, c.env);
+        const passphrase = getPassphraseFromCookie(c);
+        const userConfig = await getUserConfig(userId, c.env, passphrase);
 
         const { name } = c.req.param();
         const { uploadId, fileKey, parts } = c.req.valid('json');
@@ -738,7 +720,8 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
     async (c) => {
       try {
         const userId = getUserIdOrThrow(c);
-        const userConfig = await getUserConfig(userId, c.env);
+        const passphrase = getPassphraseFromCookie(c);
+        const userConfig = await getUserConfig(userId, c.env, passphrase);
 
         const { name } = c.req.param();
         const { uploadId, fileKey } = c.req.valid('json');
@@ -755,14 +738,9 @@ const bucketsRouter = new Hono<AuthHonoEnv>()
         });
 
         if (!abortResponse.ok) {
-          console.error(`Failed to abort multipart upload: ${abortResponse.status}`);
-          return c.json(
-            {
-              data: null,
-              message: 'Failed to abort multipart upload',
-            },
-            500
-          );
+          throw new HTTPException(500, {
+            message: 'Failed to abort multipart upload',
+          });
         }
 
         return c.json(createSuccessResponse({ uploadId, fileKey, bucketName: name }));

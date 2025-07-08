@@ -1,36 +1,18 @@
+import type { InferResponseType } from 'hono';
 import { createContext, useContext } from 'react';
+import type { createClient } from '~/utils/client';
 
-interface ProtectedContextType {
-  session: {
-    session: {
-      id: string;
-      token: string;
-      userId: string;
-      expiresAt: Date;
-      createdAt: Date;
-      updatedAt: Date;
-      ipAddress?: string | null;
-      userAgent?: string | null;
-    };
-    user: {
-      id: string;
-      name: string;
-      emailVerified: boolean;
-      email: string;
-      createdAt: Date;
-      updatedAt: Date;
-      image?: string | null;
-      filesViewMode?: 'list' | 'grid' | null;
-    };
-  };
-}
-
-export const ProtectedContext = createContext<ProtectedContextType['session'] | null>(null);
+export const ProtectedContext = createContext<InferResponseType<
+  ReturnType<typeof createClient>['session']['$get']
+> | null>(null);
 
 export function ProtectedProvider({
   children,
   session,
-}: { children: React.ReactNode; session: ProtectedContextType['session'] }) {
+}: {
+  children: React.ReactNode;
+  session: InferResponseType<ReturnType<typeof createClient>['session']['$get']>;
+}) {
   return <ProtectedContext.Provider value={session}>{children}</ProtectedContext.Provider>;
 }
 

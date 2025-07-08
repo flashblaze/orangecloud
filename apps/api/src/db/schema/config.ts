@@ -21,10 +21,10 @@ const timeStamps = {
 
 export const configTable = sqliteTable('config', {
   id: text().primaryKey().$defaultFn(nanoid),
-  cloudflareAccountId: text().notNull(),
-  cloudflareApiToken: text().notNull(),
-  cloudflareR2AccessKey: text().notNull(),
-  cloudflareR2SecretKey: text().notNull(),
+  encryptedCredentials: text().notNull(), // AES-256-GCM encrypted JSON
+  wrappedDek: text().notNull(), // DEK wrapped with user's KEK
+  salt: text().notNull(), // For PBKDF2 key derivation
+  iv: text().notNull(), // Initialization vector for AES-GCM
   userId: text()
     .notNull()
     .references(() => userTable.id, { onDelete: 'cascade' }),

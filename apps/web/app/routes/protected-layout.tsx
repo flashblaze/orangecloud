@@ -1,8 +1,17 @@
-import { Outlet, type ShouldRevalidateFunctionArgs, redirect } from 'react-router';
-
+import { parse, serialize } from 'cookie-es';
+import { useEffect } from 'react';
+import {
+  Outlet,
+  redirect,
+  type ShouldRevalidateFunctionArgs,
+  useLocation,
+  useNavigate,
+} from 'react-router';
 import ProtectedLayout from '~/components/layout/ProtectedLayout';
+import { createCookieOptions } from '~/components/modules/settings/SavePassphraseInBrowser';
 import { ProtectedContext } from '~/context/protected-context';
 import { createClient } from '~/utils/client';
+import { PASSPHRASE_KEY } from '~/utils/constants';
 import type { Route } from './+types/protected-layout';
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -15,12 +24,15 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const userConfigResponse = await client.config.$get();
   const userConfig = await userConfigResponse.json();
+  const passphrase = parse(request.headers.get('cookie') || '')[PASSPHRASE_KEY];
+  const validateConfigResponse = await client.config.validate.$get();
+  const validateConfig = await validateConfigResponse.json();
 
-  if (!userConfig.data && !request.url.includes('/settings')) {
+  if ((!userConfig.data || !passphrase) && !request.url.includes('/settings')) {
     return redirect('/settings');
   }
 
-  return Response.json({ session });
+  return { session, validateConfig };
 }
 
 export function shouldRevalidate({
@@ -38,7 +50,20 @@ export function shouldRevalidate({
 }
 
 const ProtectedLayoutRoute = ({ loaderData }: Route.ComponentProps) => {
-  const { session } = loaderData;
+  const { session, validateConfig } = loaderData;
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (validateConfig?.message.includes('Invalid passphrase')) {
+      document.cookie = serialize(PASSPHRASE_KEY, '', createCookieOptions(0));
+      window.location.reload();
+      if (!location.pathname.includes('/settings')) {
+        navigate('/settings');
+      }
+    }
+  }, [validateConfig, location, navigate]);
+
   return (
     <ProtectedContext.Provider value={session}>
       <ProtectedLayout>

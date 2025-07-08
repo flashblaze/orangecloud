@@ -14,7 +14,7 @@ import FileItem from '~/components/modules/bucket/FileItem';
 import UploadProgress from '~/components/modules/bucket/UploadProgress';
 import { useEnv } from '~/context/env-context';
 import { useProtected } from '~/context/protected-context';
-import { useFileUpload } from '~/hooks/useFileUpload';
+import { useFileUpload } from '~/hooks/files/useFileUpload';
 import useBucketContentByName from '~/queries/buckets/useBucketContentByName';
 import useUpdateViewMode from '~/queries/user/useUpdateViewMode';
 import { cn } from '~/utils';
@@ -75,7 +75,7 @@ const Bucket = () => {
   const session = useProtected();
 
   const initialViewMode = session.user.filesViewMode || 'list';
-  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode as ViewMode);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +86,7 @@ const Bucket = () => {
 
   useEffect(() => {
     const sessionViewMode = session.user.filesViewMode || 'list';
-    setViewMode(sessionViewMode);
+    setViewMode(sessionViewMode as ViewMode);
   }, [session.user.filesViewMode]);
 
   const bucketContentByName = useBucketContentByName({

@@ -1,23 +1,31 @@
+import Cloudflare from 'cloudflare';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod/v4';
-
-import Cloudflare from 'cloudflare';
 import createDb from '../db';
 import { configTable } from '../db/schema';
 import authMiddleware from '../middlewares/auth';
 import { createValidator } from '../middlewares/validator';
 import type { AuthHonoEnv } from '../types';
-import { createAwsClient, getUserConfig, getUserIdOrThrow } from '../utils';
+import {
+  createAwsClient,
+  getPassphraseFromCookie,
+  getUserConfig,
+  getUserIdOrThrow,
+} from '../utils';
 import { logger } from '../utils/logger';
 import { createSuccessResponse } from '../utils/responses';
 
-const saveConfigSchema = z.object({
-  cloudflareAccountId: z.string().min(1, 'Cloudflare Account ID is required'),
-  cloudflareApiToken: z.string().min(1, 'Cloudflare API Token is required'),
-  cloudflareR2AccessKey: z.string().min(1, 'R2 Access Key is required'),
-  cloudflareR2SecretKey: z.string().min(1, 'R2 Secret Key is required'),
+const saveEncryptedConfigSchema = z.object({
+  encryptedCredentials: z.string().min(1, 'Encrypted credentials are required'),
+  wrappedDek: z.string().min(1, 'Wrapped DEK is required'),
+  salt: z.string().min(1, 'Salt is required'),
+  iv: z.string().min(1, 'IV is required'),
+});
+
+const decryptConfigSchema = z.object({
+  passphrase: z.string().min(1, 'Passphrase is required'),
 });
 
 const checkAccountIdAndToken = async (config: {
@@ -113,30 +121,36 @@ const configRouter = new Hono<AuthHonoEnv>()
   .get('/', authMiddleware, async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const db = createDb(c.env);
+      const userConfig = await db
+        .select()
+        .from(configTable)
+        .where(eq(configTable.userId, userId))
+        .get();
 
       if (!userConfig) {
         return c.json(createSuccessResponse(null, 'Config not found'));
       }
 
-      const configData = {
-        cloudflareAccountId: userConfig.cloudflareAccountId,
-        cloudflareApiToken: userConfig.cloudflareApiToken,
-        cloudflareR2AccessKey: userConfig.cloudflareR2AccessKey,
-        cloudflareR2SecretKey: userConfig.cloudflareR2SecretKey,
-      };
-
-      return c.json(createSuccessResponse(configData));
+      return c.json(
+        createSuccessResponse(
+          {
+            hasConfig: true,
+          },
+          'Encrypted config found'
+        )
+      );
     } catch (error) {
       throw new HTTPException(500, {
         message: error instanceof Error ? error.message : 'Internal server error',
       });
     }
   })
-  .get('/check', authMiddleware, async (c) => {
+  .post('/decrypt', authMiddleware, createValidator('json', decryptConfigSchema), async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
-      const userConfig = await getUserConfig(userId, c.env);
+      const { passphrase } = c.req.valid('json');
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
 
       if (!userConfig) {
         throw new HTTPException(404, {
@@ -144,12 +158,29 @@ const configRouter = new Hono<AuthHonoEnv>()
         });
       }
 
-      const validation = await validateCloudflareCredentials({
-        cloudflareAccountId: userConfig.cloudflareAccountId,
-        cloudflareApiToken: userConfig.cloudflareApiToken,
-        cloudflareR2AccessKey: userConfig.cloudflareR2AccessKey,
-        cloudflareR2SecretKey: userConfig.cloudflareR2SecretKey,
+      return c.json(createSuccessResponse(userConfig, 'Credentials decrypted successfully'));
+    } catch (error) {
+      if (error instanceof HTTPException) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: error instanceof Error ? error.message : 'Internal server error',
       });
+    }
+  })
+  .get('/validate', authMiddleware, async (c) => {
+    try {
+      const userId = getUserIdOrThrow(c);
+      const passphrase = getPassphraseFromCookie(c);
+      const userConfig = await getUserConfig(userId, c.env, passphrase);
+
+      if (!userConfig) {
+        throw new HTTPException(404, {
+          message: 'Configuration not found. Please save your configuration first.',
+        });
+      }
+
+      const validation = await validateCloudflareCredentials(userConfig);
 
       const allValid = validation.accountIdOrApiToken.valid && validation.r2Credentials.valid;
 
@@ -173,7 +204,7 @@ const configRouter = new Hono<AuthHonoEnv>()
     } catch (error) {
       if (error instanceof Cloudflare.APIError) {
         throw new HTTPException(error.status || 400, {
-          message: error.errors[0].message || 'Failed to list buckets',
+          message: error.errors[0].message || 'Failed to validate credentials',
         });
       }
 
@@ -182,7 +213,7 @@ const configRouter = new Hono<AuthHonoEnv>()
       });
     }
   })
-  .post('/', authMiddleware, createValidator('json', saveConfigSchema), async (c) => {
+  .post('/', authMiddleware, createValidator('json', saveEncryptedConfigSchema), async (c) => {
     try {
       const userId = getUserIdOrThrow(c);
       const db = createDb(c.env);
@@ -203,14 +234,9 @@ const configRouter = new Hono<AuthHonoEnv>()
         });
       }
 
-      const responseData = {
-        cloudflareAccountId: data.cloudflareAccountId,
-        cloudflareApiToken: data.cloudflareApiToken,
-        cloudflareR2AccessKey: data.cloudflareR2AccessKey,
-        cloudflareR2SecretKey: data.cloudflareR2SecretKey,
-      };
-
-      return c.json(createSuccessResponse(responseData, 'Configuration saved successfully'));
+      return c.json(
+        createSuccessResponse({ hasConfig: true }, 'Encrypted configuration saved successfully')
+      );
     } catch (error) {
       throw new HTTPException(500, {
         message: error instanceof Error ? error.message : 'Internal server error',

@@ -1,6 +1,5 @@
 import Cloudflare from 'cloudflare';
 
-import type { Config } from '../db/schema';
 import { logger } from './logger';
 
 export interface CorsCheckResult {
@@ -14,6 +13,11 @@ export interface EnsureCorsResult {
   configured: boolean;
   message: string;
   hasRequiredOrigins: boolean;
+}
+
+interface CredentialFields {
+  cloudflareApiToken: string;
+  cloudflareAccountId: string;
 }
 
 /**
@@ -38,16 +42,16 @@ export function getRequiredOrigins(env: { ORIGIN_URLS?: string; BASE_URL?: strin
  */
 export async function checkBucketCors(
   bucketName: string,
-  userConfig: Config,
+  credentials: CredentialFields,
   requiredOrigins: string[]
 ): Promise<CorsCheckResult> {
   try {
     const cloudflare = new Cloudflare({
-      apiToken: userConfig.cloudflareApiToken,
+      apiToken: credentials.cloudflareApiToken,
     });
 
     const response = await cloudflare.r2.buckets.cors.get(bucketName, {
-      account_id: userConfig.cloudflareAccountId,
+      account_id: credentials.cloudflareAccountId,
     });
 
     const rules = response.rules || [];
@@ -111,11 +115,11 @@ export function generateBasicCorsRule(
  */
 export async function ensureBucketCors(
   bucketName: string,
-  userConfig: Config,
+  credentials: CredentialFields,
   env: { ORIGIN_URLS?: string; BASE_URL?: string }
 ): Promise<EnsureCorsResult> {
   const requiredOrigins = getRequiredOrigins(env);
-  const corsStatus = await checkBucketCors(bucketName, userConfig, requiredOrigins);
+  const corsStatus = await checkBucketCors(bucketName, credentials, requiredOrigins);
 
   let corsMessage = '';
   let corsConfigured = false;
@@ -123,13 +127,13 @@ export async function ensureBucketCors(
   if (!corsStatus.hasRequiredOrigins) {
     // Auto-configure CORS
     const cloudflare = new Cloudflare({
-      apiToken: userConfig.cloudflareApiToken,
+      apiToken: credentials.cloudflareApiToken,
     });
 
     let existingRules: NonNullable<CorsCheckResult['currentRules']> = [];
     try {
       const existingResponse = await cloudflare.r2.buckets.cors.get(bucketName, {
-        account_id: userConfig.cloudflareAccountId,
+        account_id: credentials.cloudflareAccountId,
       });
       existingRules = existingResponse.rules || [];
     } catch (error) {
@@ -140,7 +144,7 @@ export async function ensureBucketCors(
     const updatedRules = [basicCorsRule, ...existingRules];
 
     await cloudflare.r2.buckets.cors.update(bucketName, {
-      account_id: userConfig.cloudflareAccountId,
+      account_id: credentials.cloudflareAccountId,
       rules: updatedRules,
     });
 
